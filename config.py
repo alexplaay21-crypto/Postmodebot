@@ -2,11 +2,11 @@
 # Fill these in before running the bot.
 
 # Token from @BotFather
-BOT_TOKEN = "8858176689:AAEzaLBEkb1X-V5nUAdwO0bILRML74pTj8Y"
+BOT_TOKEN = ""
 
 # Your numeric Telegram user ID (get it from @userinfobot).
 # Reserved for future admin-only features (e.g. broadcast, stats).
-ADMIN_ID = 6714200331
+ADMIN_ID = 122
 
 # Donation amounts offered on the "💰 Support the author" screen, in
 # Telegram Stars (XTR). Stars are Telegram's own in-app currency — no
