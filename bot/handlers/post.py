@@ -390,8 +390,24 @@ async def send_post(call: CallbackQuery, state: FSMContext, bot: Bot):
             lambda *a, **kw: bot.send_message(target, *a, **kw),
             media, caption, markup,
         )
-        await call.message.answer(t(lang, "post_success", target=str(target)), reply_markup=main_menu_kb(lang))
+        record_post_sent(
+            call.from_user.id,
+            chat_id=target if isinstance(target, int) else None,
+        )
+
+        await call.message.answer(
+            t(lang, "post_success", target=str(target)),
+            reply_markup=main_menu_kb(lang),
+        )
     except TelegramAPIError as e:
+        record_error(
+            e,
+            user_id=call.from_user.id,
+            details={
+                "target": str(target),
+            },
+        )
+
         tip = _explain_error(lang, e)
         await call.message.answer(t(lang, "post_failed", error=tip), reply_markup=main_menu_kb(lang))
 

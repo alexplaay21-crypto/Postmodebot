@@ -1,41 +1,52 @@
 # -*- coding: utf-8 -*-
 
 import asyncio
-import json
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
 from aiogram import Router, F, Bot
-from aiogram.exceptions import TelegramRetryAfter
+from aiogram.exceptions import TelegramRetryAfter, TelegramAPIError
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import (
-    Message,
     CallbackQuery,
+    FSInputFile,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    FSInputFile,
+    Message,
 )
 
 from config import ADMIN_ID
-from bot.monitoring import (
-    get_data,
-    is_blocked,
-    set_blocked,
+from bot.database import (
+    get_counts,
+    get_user,
+    get_users,
+    get_all_user_ids,
+    get_posts,
+    get_chats,
+    get_events,
+    get_errors,
+    get_blocked_users,
+    get_language_stats,
+    get_broadcasts,
+    search_users,
     get_setting,
     set_setting,
-    uptime_text,
+    is_blocked,
+    set_blocked,
+    add_broadcast,
+    backup_database,
+    get_database_size,
 )
+from bot.monitoring import uptime_text
 
 router = Router(name="admin")
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
-USERS_FILE = DATA_DIR / "users.json"
-POSTS_FILE = DATA_DIR / "posts.json"
-BACKUPS_DIR = DATA_DIR / "backups"
+EXPORTS_DIR = DATA_DIR / "exports"
 
 
 class AdminForm(StatesGroup):
@@ -43,1024 +54,701 @@ class AdminForm(StatesGroup):
     broadcast_message = State()
 
 
-def _load(path, default):
-    try:
-        if not path.exists():
-            return default
-
-        with path.open("r", encoding="utf-8") as f:
-            return json.load(f)
-
-    except Exception:
-        return default
+def _admin(message: Message) -> bool:
+    return message.from_user.id == ADMIN_ID
 
 
-def _users():
-    data = _load(USERS_FILE, {})
-    return data if isinstance(data, dict) else {}
+def _callback_admin(call: CallbackQuery) -> bool:
+    return call.from_user.id == ADMIN_ID
 
 
-def _posts():
-    data = _load(POSTS_FILE, {})
-    return data if isinstance(data, dict) else {}
-
-
-def _user_ids():
-    result = []
-
-    for key in _users():
-        try:
-            result.append(int(key))
-        except (TypeError, ValueError):
-            pass
-
-    return sorted(set(result))
-
-
-def _language_stats():
-    result = {}
-
-    for value in _users().values():
-        lang = value if isinstance(value, str) else "unknown"
-        result[lang] = result.get(lang, 0) + 1
-
-    return sorted(
-        result.items(),
-        key=lambda x: x[1],
-        reverse=True
-    )
-
-
-def _active_chats():
-    data = get_data()
-    result = []
-
-    for chat in data.get("chats", {}).values():
-        status = chat.get("status")
-
-        if status not in ("left", "kicked"):
-            result.append(chat)
-
-    return result
-
-
-def _chat_stats():
-    chats = _active_chats()
-
-    channels = sum(
-        1 for x in chats
-        if x.get("type") == "channel"
-    )
-
-    groups = sum(
-        1 for x in chats
-        if x.get("type") in ("group", "supergroup")
-    )
-
-    return channels, groups, len(chats)
-
-
-def _fmt_time(value):
+def _fmt_time(value) -> str:
     if not value:
         return "—"
 
-    try:
-        dt = datetime.fromisoformat(value)
-        return dt.astimezone(timezone.utc).strftime(
-            "%Y-%m-%d %H:%M UTC"
-        )
-    except Exception:
-        return str(value)
+    if isinstance(value, str):
+        return value.replace("T", " ")[:19]
+
+    return str(value)
 
 
-def _main_kb():
+def _main_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="📊 Dashboard",
-                    callback_data="admin:dashboard"
-                )
-            ],
-            [
+                    text="📊 Статистика",
+                    callback_data="admin:dashboard",
+                ),
                 InlineKeyboardButton(
                     text="👥 Пользователи",
-                    callback_data="admin:users"
+                    callback_data="admin:users",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📢 Посты",
+                    callback_data="admin:posts",
                 ),
                 InlineKeyboardButton(
-                    text="🌍 Языки",
-                    callback_data="admin:languages"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="📡 Каналы / группы",
-                    callback_data="admin:chats"
+                    text="💬 Чаты",
+                    callback_data="admin:chats",
                 ),
-                InlineKeyboardButton(
-                    text="📝 Посты",
-                    callback_data="admin:posts"
-                )
             ],
             [
                 InlineKeyboardButton(
-                    text="📢 Рассылка",
-                    callback_data="admin:broadcast"
-                )
-            ],
-            [
+                    text="🌐 Языки",
+                    callback_data="admin:languages",
+                ),
                 InlineKeyboardButton(
                     text="📈 Аналитика",
-                    callback_data="admin:analytics"
+                    callback_data="admin:analytics",
                 ),
-                InlineKeyboardButton(
-                    text="🖥 Мониторинг",
-                    callback_data="admin:monitor"
-                )
             ],
             [
                 InlineKeyboardButton(
-                    text="🚨 Ошибки",
-                    callback_data="admin:errors"
+                    text="🚫 Заблокированные",
+                    callback_data="admin:blocked",
                 ),
-                InlineKeyboardButton(
-                    text="📋 Логи",
-                    callback_data="admin:logs"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🚫 Блокировки",
-                    callback_data="admin:blocked"
-                ),
-                InlineKeyboardButton(
-                    text="💾 Backup",
-                    callback_data="admin:backup"
-                )
-            ],
-            [
                 InlineKeyboardButton(
                     text="⚙️ Настройки",
-                    callback_data="admin:settings"
-                )
-            ]
+                    callback_data="admin:settings",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="📣 Рассылка",
+                    callback_data="admin:broadcast",
+                ),
+                InlineKeyboardButton(
+                    text="💾 Экспорт",
+                    callback_data="admin:backup",
+                ),
+            ],
+            [
+                InlineKeyboardButton(
+                    text="❌ Ошибки",
+                    callback_data="admin:errors",
+                ),
+                InlineKeyboardButton(
+                    text="📜 События",
+                    callback_data="admin:logs",
+                ),
+            ],
         ]
     )
 
 
-def _back_kb():
+def _back_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
                     text="⬅️ Назад",
-                    callback_data="admin:dashboard"
+                    callback_data="admin:dashboard",
                 )
             ]
         ]
     )
 
 
-def _dashboard_text():
-    users = _users()
-    posts = _posts()
-    data = get_data()
+def _dashboard_text() -> str:
+    counts = get_counts()
+    blocked = len(get_blocked_users())
+    db_size = get_database_size()
 
-    channels, groups, chats = _chat_stats()
-
-    blocked = len(data.get("blocked_users", []))
-    errors = len(data.get("errors", []))
+    maintenance = get_setting("maintenance_mode", False)
 
     return (
-        "<b>🔐 ADMIN DASHBOARD</b>\n\n"
-        f"👥 Пользователей: <b>{len(users)}</b>\n"
-        f"📝 Сохранённых постов: <b>{len(posts)}</b>\n"
-        f"📡 Каналов: <b>{channels}</b>\n"
-        f"👥 Групп: <b>{groups}</b>\n"
-        f"🤖 Чатов с ботом: <b>{chats}</b>\n"
+        "🛠 <b>Админ-панель</b>\n\n"
+        f"👥 Пользователей: <b>{counts.get('users', 0)}</b>\n"
+        f"📢 Сохранённых постов: <b>{counts.get('posts', 0)}</b>\n"
+        f"💬 Чатов: <b>{counts.get('chats', 0)}</b>\n"
+        f"📜 Событий: <b>{counts.get('events', 0)}</b>\n"
+        f"❌ Ошибок: <b>{counts.get('errors', 0)}</b>\n"
         f"🚫 Заблокировано: <b>{blocked}</b>\n"
-        f"🚨 Ошибок: <b>{errors}</b>\n"
-        f"⏱ Uptime: <b>{uptime_text()}</b>"
+        f"💾 База данных: <b>{db_size / 1024:.1f} KB</b>\n"
+        f"⚙️ Техработы: <b>{'ВКЛ' if maintenance else 'ВЫКЛ'}</b>\n"
+        f"⏱ Аптайм: <b>{uptime_text()}</b>"
     )
 
 
-def _check(user_id):
-    return user_id == ADMIN_ID
-
-
 @router.message(Command("admin"))
-async def admin_command(message: Message, state: FSMContext):
-    if not _check(message.from_user.id):
+async def admin_command(message: Message):
+    if not _admin(message):
         return
-
-    await state.clear()
 
     await message.answer(
         _dashboard_text(),
-        reply_markup=_main_kb()
+        reply_markup=_main_kb(),
     )
 
 
 @router.callback_query(F.data == "admin:dashboard")
-async def admin_dashboard(call: CallbackQuery, state: FSMContext):
-    if not _check(call.from_user.id):
+async def admin_dashboard(call: CallbackQuery):
+    if not _callback_admin(call):
         return
-
-    await state.clear()
 
     await call.message.edit_text(
         _dashboard_text(),
-        reply_markup=_main_kb()
+        reply_markup=_main_kb(),
     )
-
     await call.answer()
 
 
 @router.callback_query(F.data == "admin:users")
 async def admin_users(call: CallbackQuery):
-    if not _check(call.from_user.id):
+    if not _callback_admin(call):
         return
 
-    data = get_data()
-    users = _users()
+    users = get_users(limit=20)
 
-    active = 0
-    now = datetime.now(timezone.utc)
+    text = "👥 <b>Последние пользователи</b>\n\n"
 
-    for item in data.get("users", {}).values():
-        try:
-            last = datetime.fromisoformat(item["last_seen"])
-            if (now - last).total_seconds() <= 86400:
-                active += 1
-        except Exception:
-            pass
+    if not users:
+        text += "Пользователей пока нет."
+    else:
+        for user in users:
+            username = user.get("username") or "без username"
+            name = user.get("full_name") or "—"
+            uid = user.get("user_id")
+
+            text += (
+                f"• <b>{name}</b>\n"
+                f"  @{username} | <code>{uid}</code>\n"
+                f"  Язык: {user.get('language') or '—'}\n\n"
+            )
 
     await call.message.edit_text(
-        "<b>👥 Пользователи</b>\n\n"
-        f"Всего: <b>{len(users)}</b>\n"
-        f"Активных за 24ч: <b>{active}</b>\n\n"
-        "Для поиска отправь:\n"
-        "<code>/find ID</code>\n"
-        "или\n"
-        "<code>/find @username</code>",
-        reply_markup=_back_kb()
+        text,
+        reply_markup=_back_kb(),
     )
-
     await call.answer()
-
-
-@router.message(Command("find"))
-async def find_user(message: Message):
-    if not _check(message.from_user.id):
-        return
-
-    parts = message.text.split(maxsplit=1)
-
-    if len(parts) < 2:
-        await message.answer(
-            "Использование:\n"
-            "<code>/find 123456789</code>\n"
-            "<code>/find @username</code>"
-        )
-        return
-
-    query = parts[1].strip().lower()
-    data = get_data()
-
-    found = []
-
-    for uid, user in data.get("users", {}).items():
-        username = str(user.get("username") or "").lower()
-        first_name = str(user.get("first_name") or "").lower()
-        last_name = str(user.get("last_name") or "").lower()
-
-        if (
-            query == uid.lower()
-            or query.lstrip("@") == username.lstrip("@")
-            or query in first_name
-            or query in last_name
-        ):
-            found.append((uid, user))
-
-    if not found:
-        await message.answer("❌ Пользователь не найден.")
-        return
-
-    uid, user = found[0]
-
-    blocked = is_blocked(int(uid))
-    chats = user.get("chats", [])
-
-    await message.answer(
-        "<b>👤 Пользователь</b>\n\n"
-        f"ID: <code>{uid}</code>\n"
-        f"Username: @{user.get('username') or '—'}\n"
-        f"Имя: {user.get('first_name') or '—'}\n"
-        f"Фамилия: {user.get('last_name') or '—'}\n\n"
-        f"Первый визит: {_fmt_time(user.get('first_seen'))}\n"
-        f"Последний визит: {_fmt_time(user.get('last_seen'))}\n"
-        f"Постов создано: {user.get('posts_created', 0)}\n"
-        f"Постов отправлено: {user.get('posts_sent', 0)}\n"
-        f"Чатов: {len(chats)}\n"
-        f"Статус: {'🚫 Заблокирован' if blocked else '✅ Активен'}"
-    )
 
 
 @router.callback_query(F.data == "admin:languages")
 async def admin_languages(call: CallbackQuery):
-    if not _check(call.from_user.id):
+    if not _callback_admin(call):
         return
 
-    stats = _language_stats()
+    stats = get_language_stats()
 
-    lines = ["<b>🌍 Языки пользователей</b>\n"]
+    text = "🌐 <b>Языки пользователей</b>\n\n"
 
     if not stats:
-        lines.append("Нет данных.")
+        text += "Данных пока нет."
     else:
-        for lang, count in stats:
-            lines.append(
-                f"<code>{lang}</code> — <b>{count}</b>"
-            )
+        for lang, count in stats.items():
+            text += f"• <code>{lang}</code>: {count}\n"
 
     await call.message.edit_text(
-        "\n".join(lines),
-        reply_markup=_back_kb()
+        text,
+        reply_markup=_back_kb(),
     )
-
     await call.answer()
 
 
 @router.callback_query(F.data == "admin:chats")
 async def admin_chats(call: CallbackQuery):
-    if not _check(call.from_user.id):
+    if not _callback_admin(call):
         return
 
-    chats = _active_chats()
-    channels, groups, total = _chat_stats()
+    chats = get_chats(limit=30)
 
-    lines = [
-        "<b>📡 Каналы и группы</b>\n",
-        f"Всего: <b>{total}</b>",
-        f"📢 Каналов: <b>{channels}</b>",
-        f"👥 Групп: <b>{groups}</b>",
-        ""
-    ]
+    text = "💬 <b>Чаты</b>\n\n"
 
-    for chat in chats[-15:]:
-        title = chat.get("title") or chat.get("username") or "Без названия"
-        chat_type = chat.get("type", "?")
+    if not chats:
+        text += "Чатов пока нет."
+    else:
+        for chat in chats:
+            title = chat.get("title") or "Без названия"
+            chat_id = chat.get("chat_id")
 
-        lines.append(
-            f"• <b>{title}</b> "
-            f"<code>{chat.get('chat_id')}</code> "
-            f"({chat_type})"
-        )
+            text += (
+                f"• <b>{title}</b>\n"
+                f"  <code>{chat_id}</code>\n"
+                f"  Тип: {chat.get('chat_type') or '—'}\n\n"
+            )
 
     await call.message.edit_text(
-        "\n".join(lines),
-        reply_markup=_back_kb()
+        text,
+        reply_markup=_back_kb(),
     )
-
     await call.answer()
 
 
 @router.callback_query(F.data == "admin:posts")
 async def admin_posts(call: CallbackQuery):
-    if not _check(call.from_user.id):
+    if not _callback_admin(call):
         return
 
-    posts = _posts()
+    posts = get_posts(limit=20)
 
-    media = {
-        "photo": 0,
-        "animation": 0,
-        "document": 0,
-        "text": 0
-    }
+    text = "📢 <b>Сохранённые посты</b>\n\n"
 
-    for post in posts.values():
-        item = post.get("media")
-
-        if not item:
-            media["text"] += 1
-        else:
-            media[item.get("type", "text")] = (
-                media.get(item.get("type", "text"), 0) + 1
+    if not posts:
+        text += "Постов пока нет."
+    else:
+        for post in posts:
+            text += (
+                f"• <b>{post.get('name') or 'Без названия'}</b>\n"
+                f"  Пользователь: <code>{post.get('user_id')}</code>\n"
+                f"  Код: <code>{post.get('code')}</code>\n\n"
             )
 
     await call.message.edit_text(
-        "<b>📝 Посты</b>\n\n"
-        f"Всего сохранено: <b>{len(posts)}</b>\n\n"
-        f"🖼 Фото: {media['photo']}\n"
-        f"🎞 GIF: {media['animation']}\n"
-        f"📄 Документы: {media['document']}\n"
-        f"📝 Только текст: {media['text']}",
-        reply_markup=_back_kb()
+        text,
+        reply_markup=_back_kb(),
     )
-
     await call.answer()
 
 
 @router.callback_query(F.data == "admin:analytics")
 async def admin_analytics(call: CallbackQuery):
-    if not _check(call.from_user.id):
+    if not _callback_admin(call):
         return
 
-    data = get_data()
+    counts = get_counts()
+    broadcasts = get_broadcasts(limit=10)
 
-    created = sum(
-        int(x.get("posts_created", 0))
-        for x in data.get("users", {}).values()
+    text = (
+        "📈 <b>Аналитика</b>\n\n"
+        f"👥 Пользователи: {counts.get('users', 0)}\n"
+        f"📢 Посты: {counts.get('posts', 0)}\n"
+        f"💬 Чаты: {counts.get('chats', 0)}\n"
+        f"📜 События: {counts.get('events', 0)}\n"
+        f"❌ Ошибки: {counts.get('errors', 0)}\n\n"
+        f"📣 Рассылок: {len(broadcasts)}"
     )
-
-    sent = sum(
-        int(x.get("posts_sent", 0))
-        for x in data.get("users", {}).values()
-    )
-
-    events = len(data.get("events", []))
 
     await call.message.edit_text(
-        "<b>📈 Аналитика</b>\n\n"
-        f"👥 Пользователей: <b>{len(_users())}</b>\n"
-        f"📝 Создано постов: <b>{created}</b>\n"
-        f"📤 Отправлено постов: <b>{sent}</b>\n"
-        f"📋 Событий записано: <b>{events}</b>\n"
-        f"🚨 Ошибок: <b>{len(data.get('errors', []))}</b>",
-        reply_markup=_back_kb()
+        text,
+        reply_markup=_back_kb(),
     )
-
     await call.answer()
 
 
 @router.callback_query(F.data == "admin:monitor")
-async def admin_monitor(call: CallbackQuery, bot: Bot):
-    if not _check(call.from_user.id):
+async def admin_monitor(call: CallbackQuery):
+    if not _callback_admin(call):
         return
 
-    api_status = "❌ Ошибка"
-
-    try:
-        me = await bot.get_me()
-        api_status = f"✅ @{me.username}"
-    except Exception:
-        pass
-
-    data = get_data()
-
     await call.message.edit_text(
-        "<b>🖥 Мониторинг</b>\n\n"
-        f"Telegram API: <b>{api_status}</b>\n"
-        f"Uptime: <b>{uptime_text()}</b>\n"
-        f"Пользователей: <b>{len(_users())}</b>\n"
-        f"Чатов: <b>{len(_active_chats())}</b>\n"
-        f"Ошибок: <b>{len(data.get('errors', []))}</b>\n"
-        f"Событий: <b>{len(data.get('events', []))}</b>",
-        reply_markup=_back_kb()
+        "🖥 <b>Мониторинг</b>\n\n"
+        f"⏱ Аптайм: {uptime_text()}\n"
+        f"💾 SQLite: {get_database_size() / 1024:.1f} KB",
+        reply_markup=_back_kb(),
     )
-
     await call.answer()
 
 
 @router.callback_query(F.data == "admin:errors")
 async def admin_errors(call: CallbackQuery):
-    if not _check(call.from_user.id):
+    if not _callback_admin(call):
         return
 
-    errors = get_data().get("errors", [])
+    errors = get_errors(limit=20)
+
+    text = "❌ <b>Последние ошибки</b>\n\n"
 
     if not errors:
-        text = "<b>🚨 Ошибки</b>\n\nОшибок пока нет."
+        text += "Ошибок нет."
     else:
-        lines = ["<b>🚨 Последние ошибки</b>\n"]
-
-        for error in errors[-15:][::-1]:
-            lines.append(
-                f"• {_fmt_time(error.get('time'))}\n"
-                f"<code>{str(error.get('error', ''))[:300]}</code>\n"
+        for error in errors:
+            text += (
+                f"• {_fmt_time(error.get('created_at'))}\n"
+                f"Пользователь: <code>{error.get('user_id') or '—'}</code>\n"
+                f"<code>{str(error.get('error') or '')[:300]}</code>\n\n"
             )
-
-        text = "\n".join(lines)
 
     await call.message.edit_text(
         text,
-        reply_markup=_back_kb()
+        reply_markup=_back_kb(),
     )
-
     await call.answer()
 
 
 @router.callback_query(F.data == "admin:logs")
 async def admin_logs(call: CallbackQuery):
-    if not _check(call.from_user.id):
+    if not _callback_admin(call):
         return
 
-    events = get_data().get("events", [])
+    events = get_events(limit=30)
+
+    text = "📜 <b>Последние события</b>\n\n"
 
     if not events:
-        text = "<b>📋 Логи</b>\n\nЛогов пока нет."
+        text += "Событий нет."
     else:
-        lines = ["<b>📋 Последние события</b>\n"]
-
-        for event in events[-20:][::-1]:
-            lines.append(
-                f"• {_fmt_time(event.get('time'))} "
-                f"<b>{event.get('type')}</b>\n"
-                f"user=<code>{event.get('user_id') or '-'}</code> "
-                f"chat=<code>{event.get('chat_id') or '-'}</code>"
+        for event in events:
+            text += (
+                f"• {_fmt_time(event.get('created_at'))}\n"
+                f"<b>{event.get('event_type') or 'event'}</b>\n"
+                f"Пользователь: <code>{event.get('user_id') or '—'}</code>\n\n"
             )
-
-        text = "\n".join(lines)
 
     await call.message.edit_text(
         text,
-        reply_markup=_back_kb()
+        reply_markup=_back_kb(),
     )
-
     await call.answer()
 
 
 @router.callback_query(F.data == "admin:blocked")
 async def admin_blocked(call: CallbackQuery):
-    if not _check(call.from_user.id):
+    if not _callback_admin(call):
         return
 
-    blocked = get_data().get("blocked_users", [])
+    blocked = get_blocked_users()
 
-    lines = [
-        "<b>🚫 Заблокированные пользователи</b>\n",
-        f"Всего: <b>{len(blocked)}</b>",
-        ""
-    ]
+    text = "🚫 <b>Заблокированные пользователи</b>\n\n"
 
-    for uid in blocked[-30:]:
-        lines.append(f"• <code>{uid}</code>")
-
-    lines.append("")
-    lines.append("Блокировка:")
-    lines.append("<code>/block ID</code>")
-    lines.append("<code>/unblock ID</code>")
+    if not blocked:
+        text += "Список пуст."
+    else:
+        for user_id in blocked[:50]:
+            text += f"• <code>{user_id}</code>\n"
 
     await call.message.edit_text(
-        "\n".join(lines),
-        reply_markup=_back_kb()
+        text,
+        reply_markup=_back_kb(),
     )
-
     await call.answer()
 
 
-@router.message(Command("block"))
-async def block_user(message: Message):
-    if not _check(message.from_user.id):
+@router.callback_query(F.data == "admin:settings")
+async def admin_settings(call: CallbackQuery):
+    if not _callback_admin(call):
         return
 
-    parts = message.text.split(maxsplit=1)
-
-    if len(parts) != 2:
-        await message.answer("Использование: <code>/block ID</code>")
-        return
-
-    try:
-        uid = int(parts[1])
-    except ValueError:
-        await message.answer("❌ Некорректный ID.")
-        return
-
-    set_blocked(uid, True)
-
-    await message.answer(
-        f"🚫 Пользователь <code>{uid}</code> заблокирован."
-    )
-
-
-@router.message(Command("unblock"))
-async def unblock_user(message: Message):
-    if not _check(message.from_user.id):
-        return
-
-    parts = message.text.split(maxsplit=1)
-
-    if len(parts) != 2:
-        await message.answer("Использование: <code>/unblock ID</code>")
-        return
-
-    try:
-        uid = int(parts[1])
-    except ValueError:
-        await message.answer("❌ Некорректный ID.")
-        return
-
-    set_blocked(uid, False)
-
-    await message.answer(
-        f"✅ Пользователь <code>{uid}</code> разблокирован."
-    )
-
-
-@router.callback_query(F.data == "admin:broadcast")
-async def broadcast_start(call: CallbackQuery, state: FSMContext):
-    if not _check(call.from_user.id):
-        return
+    maintenance = get_setting("maintenance_mode", False)
 
     kb = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="👥 Всем",
-                    callback_data="admin:broadcast:all"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🌍 По языку",
-                    callback_data="admin:broadcast:language"
+                    text=(
+                        "🔴 Выключить техработы"
+                        if maintenance
+                        else "🟢 Включить техработы"
+                    ),
+                    callback_data="admin:maintenance",
                 )
             ],
             [
                 InlineKeyboardButton(
                     text="⬅️ Назад",
-                    callback_data="admin:dashboard"
+                    callback_data="admin:dashboard",
                 )
-            ]
+            ],
         ]
     )
 
     await call.message.edit_text(
-        "<b>📢 Рассылка</b>\n\n"
-        "Выбери аудиторию:",
-        reply_markup=kb
+        "⚙️ <b>Настройки</b>\n\n"
+        f"Режим технических работ: "
+        f"<b>{'ВКЛ' if maintenance else 'ВЫКЛ'}</b>",
+        reply_markup=kb,
     )
-
     await call.answer()
 
 
-@router.callback_query(F.data == "admin:broadcast:all")
-async def broadcast_all(call: CallbackQuery, state: FSMContext):
-    if not _check(call.from_user.id):
+@router.callback_query(F.data == "admin:maintenance")
+async def admin_maintenance(call: CallbackQuery):
+    if not _callback_admin(call):
         return
 
-    await state.update_data(broadcast_target="all")
-    await state.set_state(AdminForm.broadcast_message)
+    current = bool(get_setting("maintenance_mode", False))
+    new_value = not current
+
+    set_setting("maintenance_mode", new_value)
 
     await call.message.edit_text(
-        "<b>📢 Рассылка всем</b>\n\n"
-        "Отправь сообщение.\n"
-        "Можно текст, фото, видео, GIF или документ.\n\n"
-        "Для отмены: /cancel"
-    )
-
-    await call.answer()
-
-
-@router.callback_query(F.data == "admin:broadcast:language")
-async def broadcast_language(call: CallbackQuery):
-    if not _check(call.from_user.id):
-        return
-
-    buttons = []
-
-    for lang, count in _language_stats():
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"{lang} — {count}",
-                callback_data=f"admin:broadcast:lang:{lang}"
-            )
-        ])
-
-    buttons.append([
-        InlineKeyboardButton(
-            text="⬅️ Назад",
-            callback_data="admin:broadcast"
-        )
-    ])
-
-    await call.message.edit_text(
-        "<b>🌍 Язык рассылки</b>\n\n"
-        "Выбери язык:",
+        "⚙️ <b>Настройки</b>\n\n"
+        f"Режим технических работ: "
+        f"<b>{'ВКЛ' if new_value else 'ВЫКЛ'}</b>",
         reply_markup=InlineKeyboardMarkup(
-            inline_keyboard=buttons
-        )
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(
+                        text=(
+                            "🔴 Выключить техработы"
+                            if new_value
+                            else "🟢 Включить техработы"
+                        ),
+                        callback_data="admin:maintenance",
+                    )
+                ],
+                [
+                    InlineKeyboardButton(
+                        text="⬅️ Назад",
+                        callback_data="admin:dashboard",
+                    )
+                ],
+            ]
+        ),
     )
-
     await call.answer()
 
 
-@router.callback_query(F.data.startswith("admin:broadcast:lang:"))
-async def broadcast_language_selected(
-    call: CallbackQuery,
-    state: FSMContext
-):
-    if not _check(call.from_user.id):
+@router.callback_query(F.data == "admin:broadcast")
+async def admin_broadcast(call: CallbackQuery, state: FSMContext):
+    if not _callback_admin(call):
         return
-
-    lang = call.data.split(":")[-1]
-
-    await state.update_data(
-        broadcast_target=f"lang:{lang}"
-    )
 
     await state.set_state(AdminForm.broadcast_message)
 
-    await call.message.edit_text(
-        f"<b>📢 Рассылка: {lang}</b>\n\n"
-        "Отправь сообщение.\n\n"
+    await call.message.answer(
+        "📣 <b>Рассылка</b>\n\n"
+        "Отправь сообщение, которое нужно разослать всем пользователям.\n\n"
         "Для отмены: /cancel"
     )
-
     await call.answer()
-
-
-def _broadcast_users(target):
-    users = _users()
-    data = get_data()
-
-    blocked = {
-        int(x)
-        for x in data.get("blocked_users", [])
-    }
-
-    result = []
-
-    for uid, value in users.items():
-        try:
-            user_id = int(uid)
-        except ValueError:
-            continue
-
-        if user_id in blocked:
-            continue
-
-        if target == "all":
-            result.append(user_id)
-
-        elif target.startswith("lang:"):
-            lang = target.split(":", 1)[1]
-
-            if value == lang:
-                result.append(user_id)
-
-    return result
-
-
-@router.message(AdminForm.broadcast_message, Command("cancel"))
-async def broadcast_cancel(message: Message, state: FSMContext):
-    if not _check(message.from_user.id):
-        return
-
-    await state.clear()
-
-    await message.answer(
-        "❌ Рассылка отменена.",
-        reply_markup=_main_kb()
-    )
 
 
 @router.message(AdminForm.broadcast_message)
-async def broadcast_message(
-    message: Message,
-    state: FSMContext
-):
-    if not _check(message.from_user.id):
+async def admin_broadcast_send(message: Message, state: FSMContext):
+    if not _admin(message):
         return
 
-    data = await state.get_data()
-    target = data.get("broadcast_target", "all")
-
-    users = _broadcast_users(target)
-
-    await state.update_data(
-        broadcast_chat_id=message.chat.id,
-        broadcast_message_id=message.message_id,
-        broadcast_count=len(users)
-    )
-
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="✅ Отправить",
-                    callback_data="admin:broadcast:confirm"
-                ),
-                InlineKeyboardButton(
-                    text="❌ Отмена",
-                    callback_data="admin:broadcast:cancel"
-                )
-            ]
-        ]
-    )
-
-    await message.answer(
-        "<b>📢 Подтверждение</b>\n\n"
-        f"Получателей: <b>{len(users)}</b>\n"
-        "Заблокированные пользователи исключены.\n\n"
-        "Отправить?",
-        reply_markup=kb
-    )
-
-
-@router.callback_query(F.data == "admin:broadcast:cancel")
-async def broadcast_cancel_button(
-    call: CallbackQuery,
-    state: FSMContext
-):
-    if not _check(call.from_user.id):
-        return
-
-    await state.clear()
-
-    await call.message.edit_text(
-        "❌ Рассылка отменена.",
-        reply_markup=_main_kb()
-    )
-
-    await call.answer()
-
-
-@router.callback_query(F.data == "admin:broadcast:confirm")
-async def broadcast_confirm(
-    call: CallbackQuery,
-    state: FSMContext,
-    bot: Bot
-):
-    if not _check(call.from_user.id):
-        return
-
-    data = await state.get_data()
-
-    source_chat_id = data.get("broadcast_chat_id")
-    source_message_id = data.get("broadcast_message_id")
-    target = data.get("broadcast_target", "all")
-
-    if not source_chat_id or not source_message_id:
+    if message.text == "/cancel":
         await state.clear()
-        await call.answer(
-            "Сообщение не найдено.",
-            show_alert=True
-        )
+        await message.answer("❌ Рассылка отменена.")
         return
 
-    users = _broadcast_users(target)
+    user_ids = get_all_user_ids()
 
-    await call.message.edit_text(
-        "<b>📢 Рассылка запущена</b>\n\n"
-        f"Получателей: <b>{len(users)}</b>"
-    )
-
-    success = 0
+    sent = 0
     failed = 0
 
-    for user_id in users:
+    status = await message.answer(
+        f"📣 Начинаю рассылку: {len(user_ids)} пользователей..."
+    )
+
+    for user_id in user_ids:
         try:
-            await bot.copy_message(
+            await message.bot.copy_message(
                 chat_id=user_id,
-                from_chat_id=source_chat_id,
-                message_id=source_message_id
+                from_chat_id=message.chat.id,
+                message_id=message.message_id,
             )
-
-            success += 1
-
-            await asyncio.sleep(0.05)
+            sent += 1
 
         except TelegramRetryAfter as e:
             await asyncio.sleep(e.retry_after)
 
             try:
-                await bot.copy_message(
+                await message.bot.copy_message(
                     chat_id=user_id,
-                    from_chat_id=source_chat_id,
-                    message_id=source_message_id
+                    from_chat_id=message.chat.id,
+                    message_id=message.message_id,
                 )
-                success += 1
-
+                sent += 1
             except Exception:
                 failed += 1
 
         except Exception:
             failed += 1
 
-    admin_data = get_data()
+        await asyncio.sleep(0.04)
 
-    admin_data["broadcasts"].append({
-        "time": datetime.now(timezone.utc).isoformat(),
-        "target": target,
-        "total": len(users),
-        "success": success,
-        "failed": failed
-    })
-
-    admin_data["broadcasts"] = admin_data["broadcasts"][-100:]
-
-    from bot.monitoring import _save
-
-    _save(admin_data)
+    add_broadcast(
+        admin_id=message.from_user.id,
+        total=len(user_ids),
+        sent=sent,
+        failed=failed,
+    )
 
     await state.clear()
 
-    await call.message.answer(
-        "<b>📢 Рассылка завершена</b>\n\n"
-        f"👥 Получателей: <b>{len(users)}</b>\n"
-        f"✅ Доставлено: <b>{success}</b>\n"
-        f"❌ Ошибок: <b>{failed}</b>",
-        reply_markup=_main_kb()
+    await status.edit_text(
+        "📣 <b>Рассылка завершена</b>\n\n"
+        f"👥 Всего: {len(user_ids)}\n"
+        f"✅ Отправлено: {sent}\n"
+        f"❌ Ошибок: {failed}"
     )
-
-    await call.answer()
 
 
 @router.callback_query(F.data == "admin:backup")
-async def backup(call: CallbackQuery, bot: Bot):
-    if not _check(call.from_user.id):
+async def admin_backup(call: CallbackQuery):
+    if not _callback_admin(call):
         return
 
-    BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    stamp = datetime.now(
-        timezone.utc
-    ).strftime("%Y%m%d_%H%M%S")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
-    archive = BACKUPS_DIR / f"backup_{stamp}.zip"
+    db_copy = EXPORTS_DIR / f"bot_{stamp}.db"
+    archive = EXPORTS_DIR / f"postmodebot_export_{stamp}.zip"
 
-    with zipfile.ZipFile(
-        archive,
-        "w",
-        zipfile.ZIP_DEFLATED
-    ) as z:
-        for path in DATA_DIR.glob("*.json"):
-            z.write(
-                path,
-                arcname=path.name
+    try:
+        backup_database(db_copy)
+
+        with zipfile.ZipFile(
+            archive,
+            "w",
+            compression=zipfile.ZIP_DEFLATED,
+        ) as z:
+            z.write(db_copy, arcname="bot.db")
+
+            info = (
+                "Postmodebot SQLite export\n"
+                f"Created: {datetime.now(timezone.utc).isoformat()}\n"
+                f"Database: bot.db\n"
             )
 
-    await call.message.answer_document(
-        FSInputFile(archive),
-        caption=(
-            "💾 <b>Backup создан</b>\n\n"
-            f"<code>{archive.name}</code>"
+            z.writestr("export_info.txt", info)
+
+        await call.message.answer_document(
+            FSInputFile(archive),
+            caption=(
+                "💾 <b>Экспорт базы данных</b>\n\n"
+                f"Размер: {archive.stat().st_size / 1024:.1f} KB"
+            ),
         )
-    )
+
+    except Exception as e:
+        await call.message.answer(
+            f"❌ Ошибка экспорта:\n<code>{str(e)[:1000]}</code>"
+        )
+
+    finally:
+        try:
+            db_copy.unlink(missing_ok=True)
+            archive.unlink(missing_ok=True)
+        except Exception:
+            pass
 
     await call.answer()
 
 
-@router.callback_query(F.data == "admin:settings")
-async def admin_settings(call: CallbackQuery):
-    if not _check(call.from_user.id):
+@router.message(Command("export"))
+async def export_command(message: Message):
+    if not _admin(message):
         return
 
-    maintenance = get_setting(
-        "maintenance_mode",
-        False
-    )
+    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
-    status = "🟢 Включен" if maintenance else "🔴 Выключен"
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
 
-    kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🔄 Переключить maintenance",
-                    callback_data="admin:maintenance"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="⬅️ Назад",
-                    callback_data="admin:dashboard"
-                )
-            ]
-        ]
-    )
+    db_copy = EXPORTS_DIR / f"bot_{stamp}.db"
+    archive = EXPORTS_DIR / f"postmodebot_export_{stamp}.zip"
 
-    await call.message.edit_text(
-        "<b>⚙️ Настройки</b>\n\n"
-        f"Maintenance mode: <b>{status}</b>\n\n"
-        "При включении обычные пользователи "
-        "не смогут пользоваться ботом.",
-        reply_markup=kb
-    )
+    try:
+        backup_database(db_copy)
 
-    await call.answer()
+        with zipfile.ZipFile(
+            archive,
+            "w",
+            compression=zipfile.ZIP_DEFLATED,
+        ) as z:
+            z.write(db_copy, arcname="bot.db")
+
+            z.writestr(
+                "export_info.txt",
+                (
+                    "Postmodebot SQLite export\n"
+                    f"Created: {datetime.now(timezone.utc).isoformat()}\n"
+                ),
+            )
+
+        await message.answer_document(
+            FSInputFile(archive),
+            caption="💾 Экспорт базы данных готов.",
+        )
+
+    except Exception as e:
+        await message.answer(
+            f"❌ Ошибка экспорта:\n<code>{str(e)[:1000]}</code>"
+        )
+
+    finally:
+        try:
+            db_copy.unlink(missing_ok=True)
+            archive.unlink(missing_ok=True)
+        except Exception:
+            pass
 
 
-@router.callback_query(F.data == "admin:maintenance")
-async def maintenance_toggle(call: CallbackQuery):
-    if not _check(call.from_user.id):
+@router.message(Command("find"))
+async def find_command(message: Message, state: FSMContext):
+    if not _admin(message):
         return
 
-    current = get_setting(
-        "maintenance_mode",
-        False
+    parts = (message.text or "").split(maxsplit=1)
+
+    if len(parts) < 2:
+        await message.answer(
+            "Использование:\n"
+            "<code>/find 123456789</code>\n"
+            "или\n"
+            "<code>/find username</code>"
+        )
+        return
+
+    query = parts[1].strip()
+    users = search_users(query)
+
+    if not users:
+        await message.answer("🔎 Пользователь не найден.")
+        return
+
+    text = "🔎 <b>Результаты поиска</b>\n\n"
+
+    for user in users[:20]:
+        text += (
+            f"👤 {user.get('full_name') or '—'}\n"
+            f"ID: <code>{user.get('user_id')}</code>\n"
+            f"Username: @{user.get('username') or '—'}\n"
+            f"Язык: {user.get('language') or '—'}\n\n"
+        )
+
+    await message.answer(text)
+
+
+@router.message(Command("block"))
+async def block_command(message: Message):
+    if not _admin(message):
+        return
+
+    parts = (message.text or "").split(maxsplit=1)
+
+    if len(parts) < 2:
+        await message.answer("Использование: <code>/block USER_ID</code>")
+        return
+
+    try:
+        user_id = int(parts[1])
+    except ValueError:
+        await message.answer("❌ ID должен быть числом.")
+        return
+
+    set_blocked(user_id, True)
+
+    await message.answer(
+        f"🚫 Пользователь <code>{user_id}</code> заблокирован."
     )
 
-    set_setting(
-        "maintenance_mode",
-        not current
+
+@router.message(Command("unblock"))
+async def unblock_command(message: Message):
+    if not _admin(message):
+        return
+
+    parts = (message.text or "").split(maxsplit=1)
+
+    if len(parts) < 2:
+        await message.answer("Использование: <code>/unblock USER_ID</code>")
+        return
+
+    try:
+        user_id = int(parts[1])
+    except ValueError:
+        await message.answer("❌ ID должен быть числом.")
+        return
+
+    set_blocked(user_id, False)
+
+    await message.answer(
+        f"✅ Пользователь <code>{user_id}</code> разблокирован."
     )
-
-    await call.answer(
-        "Переключено."
-    )
-
-    await admin_settings(call)
-
