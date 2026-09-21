@@ -33,5 +33,21 @@
   "error_chat_not_found": "Chat não encontrado:\n• verifique o @usuario ou o ID\n• canais privados exigem um ID numérico como -100…\n• o bot precisa ser membro desse chat",
   "error_forbidden": "O bot não tem permissão para publicar ali:\n• adicione o bot ao canal/grupo\n• em canais, o bot precisa ser administrador com permissão de «Publicar mensagens»",
   "error_file_too_big": "O arquivo é grande demais para o envio via Bot API. Tente um arquivo menor.",
-  "error_generic": "O Telegram retornou um erro: {description}"
+  "error_generic": "O Telegram retornou um erro: {description}",
+  "menu_saved_posts": "💾 Posts salvos",
+  "btn_save_post": "💾 Salvar post",
+  "btn_edit_text": "✏️ Editar texto",
+  "btn_edit_media": "🖼 Editar mídia",
+  "btn_edit_buttons": "🔘 Editar botões",
+  "btn_edit_target": "🎯 Editar canal",
+  "saved_posts_title": "💾 Posts salvos",
+  "saved_posts_empty": "Você ainda não tem posts salvos.",
+  "saved_posts_choose": "Escolha um post:",
+  "saved_post_name_prompt": "💾 Digite um nome para o post:",
+  "saved_post_name_empty": "O nome não pode ficar vazio. Digite um nome:",
+  "saved_post_saved": "💾 Post salvo.",
+  "saved_post_not_found": "Post não encontrado.",
+  "saved_post_deleted": "Post excluído.",
+  "btn_saved_delete": "🗑 Excluir",
+  "btn_saved_back": "◀️ Voltar à lista"
 }

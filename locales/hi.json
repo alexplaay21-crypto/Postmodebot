@@ -33,5 +33,21 @@
   "error_chat_not_found": "चैट नहीं मिली:\n• @username या ID जांचें\n• प्राइवेट चैनलों के लिए -100… जैसी न्यूमेरिक ID चाहिए\n• बॉट का उस चैट में सदस्य होना ज़रूरी है",
   "error_forbidden": "बॉट को वहाँ पोस्ट करने की अनुमति नहीं है:\n• बॉट को चैनल/ग्रुप में जोड़ें\n• चैनलों के लिए बॉट को «Post messages» अनुमति वाला एडमिन होना चाहिए",
   "error_file_too_big": "फ़ाइल Bot API से अपलोड करने के लिए बहुत बड़ी है। छोटी फ़ाइल आज़माएं।",
-  "error_generic": "Telegram ने एरर लौटाया: {description}"
+  "error_generic": "Telegram ने एरर लौटाया: {description}",
+  "menu_saved_posts": "💾 सहेजी गई पोस्ट",
+  "btn_save_post": "💾 पोस्ट सहेजें",
+  "btn_edit_text": "✏️ टेक्स्ट संपादित करें",
+  "btn_edit_media": "🖼 मीडिया संपादित करें",
+  "btn_edit_buttons": "🔘 बटन संपादित करें",
+  "btn_edit_target": "🎯 चैनल संपादित करें",
+  "saved_posts_title": "💾 सहेजी गई पोस्ट",
+  "saved_posts_empty": "आपके पास अभी कोई सहेजी गई पोस्ट नहीं है।",
+  "saved_posts_choose": "एक पोस्ट चुनें:",
+  "saved_post_name_prompt": "💾 पोस्ट का नाम दर्ज करें:",
+  "saved_post_name_empty": "नाम खाली नहीं हो सकता। नाम दर्ज करें:",
+  "saved_post_saved": "💾 पोस्ट सहेजी गई।",
+  "saved_post_not_found": "पोस्ट नहीं मिली।",
+  "saved_post_deleted": "पोस्ट हटा दी गई।",
+  "btn_saved_delete": "🗑 हटाएँ",
+  "btn_saved_back": "◀️ सूची पर वापस"
 }

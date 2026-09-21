@@ -33,5 +33,21 @@
   "error_chat_not_found": "The chat wasn't found:\n• double-check the @username or ID\n• private channels need a numeric ID like -100…\n• the bot must be a member of that chat",
   "error_forbidden": "The bot isn't allowed to post there:\n• add the bot to the channel/group\n• for channels, the bot must be an admin with the “Post messages” permission",
   "error_file_too_big": "The file is too large to upload via the Bot API. Try a smaller file.",
-  "error_generic": "Telegram returned an error: {description}"
+  "error_generic": "Telegram returned an error: {description}",
+  "menu_saved_posts": "💾 Saved posts",
+  "btn_save_post": "💾 Save post",
+  "btn_edit_text": "✏️ Edit text",
+  "btn_edit_media": "🖼 Edit media",
+  "btn_edit_buttons": "🔘 Edit buttons",
+  "btn_edit_target": "🎯 Edit channel",
+  "saved_posts_title": "💾 Saved posts",
+  "saved_posts_empty": "You don't have any saved posts yet.",
+  "saved_posts_choose": "Choose a post:",
+  "saved_post_name_prompt": "💾 Enter a name for the saved post:",
+  "saved_post_name_empty": "The name cannot be empty. Enter a name:",
+  "saved_post_saved": "💾 Post saved.",
+  "saved_post_not_found": "Post not found.",
+  "saved_post_deleted": "Post deleted.",
+  "btn_saved_delete": "🗑 Delete",
+  "btn_saved_back": "◀️ Back to list"
 }

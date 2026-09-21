@@ -33,5 +33,21 @@
   "error_chat_not_found": "Похоже, чат не найден:\n• проверь правильность @username или ID\n• для приватных каналов нужен числовой ID вида -100…\n• бот должен состоять в этом чате",
   "error_forbidden": "Боту запрещено писать в этот чат:\n• добавь бота в канал/группу\n• для каналов бот должен быть администратором с правом «Публикация сообщений»",
   "error_file_too_big": "Файл слишком большой для загрузки через Bot API. Попробуй уменьшить размер файла.",
-  "error_generic": "Telegram вернул ошибку: {description}"
+  "error_generic": "Telegram вернул ошибку: {description}",
+  "menu_saved_posts": "💾 Сохранённые посты",
+  "btn_save_post": "💾 Сохранить пост",
+  "btn_edit_text": "✏️ Изменить текст",
+  "btn_edit_media": "🖼 Изменить медиа",
+  "btn_edit_buttons": "🔘 Изменить кнопки",
+  "btn_edit_target": "🎯 Изменить канал",
+  "saved_posts_title": "💾 Сохранённые посты",
+  "saved_posts_empty": "У тебя пока нет сохранённых постов.",
+  "saved_posts_choose": "Выбери пост:",
+  "saved_post_name_prompt": "💾 Введите название для сохранённого поста:",
+  "saved_post_name_empty": "Название не может быть пустым. Введите название:",
+  "saved_post_saved": "💾 Пост сохранён.",
+  "saved_post_not_found": "Пост не найден.",
+  "saved_post_deleted": "Пост удалён.",
+  "btn_saved_delete": "🗑 Удалить",
+  "btn_saved_back": "◀️ К списку"
 }

@@ -33,5 +33,21 @@
   "error_chat_not_found": "چت پیدا نشد:\n• @نام‌کاربری یا آیدی را بررسی کنید\n• کانال‌های خصوصی به آیدی عددی مانند -100… نیاز دارند\n• ربات باید عضو آن چت باشد",
   "error_forbidden": "ربات اجازه ارسال در آنجا را ندارد:\n• ربات را به کانال/گروه اضافه کنید\n• در کانال‌ها، ربات باید ادمین با اجازه «ارسال پیام» باشد",
   "error_file_too_big": "فایل برای آپلود از طریق Bot API خیلی بزرگ است. فایل کوچک‌تری امتحان کنید.",
-  "error_generic": "تلگرام خطایی برگرداند: {description}"
+  "error_generic": "تلگرام خطایی برگرداند: {description}",
+  "menu_saved_posts": "💾 پست‌های ذخیره‌شده",
+  "btn_save_post": "💾 ذخیره پست",
+  "btn_edit_text": "✏️ ویرایش متن",
+  "btn_edit_media": "🖼 ویرایش رسانه",
+  "btn_edit_buttons": "🔘 ویرایش دکمه‌ها",
+  "btn_edit_target": "🎯 ویرایش کانال",
+  "saved_posts_title": "💾 پست‌های ذخیره‌شده",
+  "saved_posts_empty": "هنوز هیچ پستی ذخیره نکرده‌اید.",
+  "saved_posts_choose": "یک پست را انتخاب کنید:",
+  "saved_post_name_prompt": "💾 یک نام برای پست وارد کنید:",
+  "saved_post_name_empty": "نام نمی‌تواند خالی باشد. یک نام وارد کنید:",
+  "saved_post_saved": "💾 پست ذخیره شد.",
+  "saved_post_not_found": "پست پیدا نشد.",
+  "saved_post_deleted": "پست حذف شد.",
+  "btn_saved_delete": "🗑 حذف",
+  "btn_saved_back": "◀️ بازگشت به فهرست"
 }

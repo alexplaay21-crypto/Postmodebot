@@ -22,6 +22,16 @@ SUPPORTED_LANGUAGES = {
     "tg": "🇹🇯 Тоҷикӣ",
     "id": "🇮🇩 Bahasa Indonesia",
     "ja": "🇯🇵 日本語",
+    "tr": "🇹🇷 Türkçe",
+    "de": "🇩🇪 Deutsch",
+    "fil": "🇵🇭 Filipino",
+    "ko": "🇰🇷 한국어",
+    "nl": "🇳🇱 Nederlands",
+    "it": "🇮🇹 Italiano",
+    "es_ar": "🇦🇷 Español (Argentina)",
+    "th": "🇹🇭 ไทย",
+    "ur": "🇵🇰 اردو",
+    "bn": "🇧🇩 বাংলা",
 }
 
 # Maps Telegram's client language_code (ISO 639-1, e.g. "pt-BR" -> "pt")
@@ -39,6 +49,17 @@ _LANGUAGE_ALIASES = {
     "tg": "tg",
     "id": "id",
     "ja": "ja",
+    "tr": "tr",
+    "de": "de",
+    "fil": "fil",
+    "ko": "ko",
+    "nl": "nl",
+    "it": "it",
+    "es-ar": "es_ar",
+    "es_ar": "es_ar",
+    "th": "th",
+    "ur": "ur",
+    "bn": "bn",
 }
 
 _cache: dict[str, dict] = {}
@@ -73,5 +94,12 @@ def detect_language(telegram_code: str | None) -> str:
     """Map a Telegram client language_code to a supported locale, defaulting to English."""
     if not telegram_code:
         return DEFAULT_LANGUAGE
-    code = telegram_code.lower().split("-")[0]
+
+    raw_code = telegram_code.lower().replace("_", "-")
+
+    # Regional locale first, e.g. es-AR -> es_ar.
+    if raw_code in _LANGUAGE_ALIASES:
+        return _LANGUAGE_ALIASES[raw_code]
+
+    code = raw_code.split("-")[0]
     return _LANGUAGE_ALIASES.get(code, DEFAULT_LANGUAGE)

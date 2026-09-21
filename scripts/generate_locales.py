@@ -464,6 +464,22 @@ TRANSLATIONS = {
 
 def main():
     os.makedirs(LOCALES_DIR, exist_ok=True)
+
+    # Keep additional locale files that are maintained separately from
+    # the large TRANSLATIONS dictionary above.
+    external_languages = [
+        "tr", "de", "fil", "ko", "nl",
+        "it", "es_ar", "th", "ur", "bn",
+    ]
+
+    for lang in external_languages:
+        path = os.path.join(LOCALES_DIR, f"{lang}.json")
+        if not os.path.exists(path):
+            raise SystemExit(f"Missing external locale: {path}")
+
+        with open(path, "r", encoding="utf-8") as f:
+            TRANSLATIONS[lang] = json.load(f)
+
     keys_reference = None
     for lang, data in TRANSLATIONS.items():
         if keys_reference is None:

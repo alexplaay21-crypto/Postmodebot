@@ -33,5 +33,21 @@
   "error_chat_not_found": "Чат ёфт нашуд:\n• @username ё ID-ро тафтиш кунед\n• барои каналҳои хусусӣ ID-и рақамӣ ба монанди -100… лозим аст\n• бот бояд узви ҳамон чат бошад",
   "error_forbidden": "Ба бот дар он ҷо нашр кардан манъ аст:\n• ботро ба канал/гурӯҳ илова кунед\n• барои каналҳо бот бояд админе бо ҳуқуқи «Нашри паёмҳо» бошад",
   "error_file_too_big": "Файл барои боркунӣ тавассути Bot API хеле калон аст. Файли хурдтарро санҷед.",
-  "error_generic": "Telegram хатогӣ баргардонд: {description}"
+  "error_generic": "Telegram хатогӣ баргардонд: {description}",
+  "menu_saved_posts": "💾 Паёмҳои захирашуда",
+  "btn_save_post": "💾 Захира кардани паём",
+  "btn_edit_text": "✏️ Таҳрири матн",
+  "btn_edit_media": "🖼 Таҳрири медиа",
+  "btn_edit_buttons": "🔘 Таҳрири тугмаҳо",
+  "btn_edit_target": "🎯 Таҳрири канал",
+  "saved_posts_title": "💾 Паёмҳои захирашуда",
+  "saved_posts_empty": "Шумо ҳоло ягон паёми захирашуда надоред.",
+  "saved_posts_choose": "Паёмро интихоб кунед:",
+  "saved_post_name_prompt": "💾 Барои паём ном ворид кунед:",
+  "saved_post_name_empty": "Ном холӣ буда наметавонад. Ном ворид кунед:",
+  "saved_post_saved": "💾 Паём захира шуд.",
+  "saved_post_not_found": "Паём ёфт нашуд.",
+  "saved_post_deleted": "Паём нест карда шуд.",
+  "btn_saved_delete": "🗑 Нест кардан",
+  "btn_saved_back": "◀️ Бозгашт ба рӯйхат"
 }

@@ -33,5 +33,21 @@
   "error_chat_not_found": "Chat introuvable :\n• vérifie le @utilisateur ou l'ID\n• les chaînes privées nécessitent un ID numérique du type -100…\n• le bot doit être membre de ce chat",
   "error_forbidden": "Le bot n'est pas autorisé à publier ici :\n• ajoute le bot à la chaîne/au groupe\n• pour les chaînes, le bot doit être administrateur avec le droit « Publier des messages »",
   "error_file_too_big": "Le fichier est trop volumineux pour l'API Bot. Essaie un fichier plus petit.",
-  "error_generic": "Telegram a renvoyé une erreur : {description}"
+  "error_generic": "Telegram a renvoyé une erreur : {description}",
+  "menu_saved_posts": "💾 Publications enregistrées",
+  "btn_save_post": "💾 Enregistrer la publication",
+  "btn_edit_text": "✏️ Modifier le texte",
+  "btn_edit_media": "🖼 Modifier le média",
+  "btn_edit_buttons": "🔘 Modifier les boutons",
+  "btn_edit_target": "🎯 Modifier le canal",
+  "saved_posts_title": "💾 Publications enregistrées",
+  "saved_posts_empty": "Vous n'avez pas encore de publications enregistrées.",
+  "saved_posts_choose": "Choisissez une publication :",
+  "saved_post_name_prompt": "💾 Entrez un nom pour la publication :",
+  "saved_post_name_empty": "Le nom ne peut pas être vide. Entrez un nom :",
+  "saved_post_saved": "💾 Publication enregistrée.",
+  "saved_post_not_found": "Publication introuvable.",
+  "saved_post_deleted": "Publication supprimée.",
+  "btn_saved_delete": "🗑 Supprimer",
+  "btn_saved_back": "◀️ Retour à la liste"
 }

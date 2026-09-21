@@ -33,5 +33,21 @@
   "error_chat_not_found": "未找到该聊天：\n• 请检查 @用户名 或 ID 是否正确\n• 私有频道需要类似 -100… 的数字 ID\n• 机器人必须已加入该聊天",
   "error_forbidden": "机器人无权在此发布：\n• 请将机器人添加到频道/群组\n• 对于频道，机器人必须是拥有「发布消息」权限的管理员",
   "error_file_too_big": "文件过大，无法通过 Bot API 上传。请尝试更小的文件。",
-  "error_generic": "Telegram 返回了错误：{description}"
+  "error_generic": "Telegram 返回了错误：{description}",
+  "menu_saved_posts": "💾 已保存的帖子",
+  "btn_save_post": "💾 保存帖子",
+  "btn_edit_text": "✏️ 编辑文字",
+  "btn_edit_media": "🖼 编辑媒体",
+  "btn_edit_buttons": "🔘 编辑按钮",
+  "btn_edit_target": "🎯 编辑频道",
+  "saved_posts_title": "💾 已保存的帖子",
+  "saved_posts_empty": "你还没有保存任何帖子。",
+  "saved_posts_choose": "选择一条帖子：",
+  "saved_post_name_prompt": "💾 输入帖子的名称：",
+  "saved_post_name_empty": "名称不能为空。请输入名称：",
+  "saved_post_saved": "💾 帖子已保存。",
+  "saved_post_not_found": "未找到帖子。",
+  "saved_post_deleted": "帖子已删除。",
+  "btn_saved_delete": "🗑 删除",
+  "btn_saved_back": "◀️ 返回列表"
 }

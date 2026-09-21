@@ -33,5 +33,21 @@
   "error_chat_not_found": "Chat tidak ditemukan:\n• periksa @username atau ID\n• channel privat butuh ID numerik seperti -100…\n• bot harus jadi anggota chat tersebut",
   "error_forbidden": "Bot tidak diizinkan memposting di sana:\n• tambahkan bot ke channel/grup\n• untuk channel, bot harus jadi admin dengan izin «Post messages»",
   "error_file_too_big": "File terlalu besar untuk diunggah lewat Bot API. Coba file yang lebih kecil.",
-  "error_generic": "Telegram mengembalikan error: {description}"
+  "error_generic": "Telegram mengembalikan error: {description}",
+  "menu_saved_posts": "💾 Post tersimpan",
+  "btn_save_post": "💾 Simpan post",
+  "btn_edit_text": "✏️ Edit teks",
+  "btn_edit_media": "🖼 Edit media",
+  "btn_edit_buttons": "🔘 Edit tombol",
+  "btn_edit_target": "🎯 Edit kanal",
+  "saved_posts_title": "💾 Post tersimpan",
+  "saved_posts_empty": "Kamu belum memiliki post tersimpan.",
+  "saved_posts_choose": "Pilih post:",
+  "saved_post_name_prompt": "💾 Masukkan nama untuk post:",
+  "saved_post_name_empty": "Nama tidak boleh kosong. Masukkan nama:",
+  "saved_post_saved": "💾 Post berhasil disimpan.",
+  "saved_post_not_found": "Post tidak ditemukan.",
+  "saved_post_deleted": "Post dihapus.",
+  "btn_saved_delete": "🗑 Hapus",
+  "btn_saved_back": "◀️ Kembali ke daftar"
 }

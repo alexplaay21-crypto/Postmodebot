@@ -8,7 +8,7 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 
 from bot.keyboards import cancel_kb, confirm_kb, main_menu_kb, skip_cancel_kb
-from bot.storage import get_user_language
+from bot.storage import get_user_language, save_post
 from bot.texts import t
 
 router = Router(name="post")
@@ -20,6 +20,7 @@ class PostForm(StatesGroup):
     buttons = State()
     target = State()
     confirm = State()
+    save_name = State()
 
 
 # ---------- helpers ----------
@@ -36,7 +37,7 @@ def _preserve_custom_emoji(message: Message) -> str:
 
     # aiogram bug/compatibility: emoji_id -> emoji-id
     html = re.sub(
-        r'<tg-emoji\\s+emoji_id=(["\\'])(\\d+)\\1>',
+        r'<tg-emoji\s+emoji_id=(["\'])(\d+)\1>',
         r'<tg-emoji emoji-id="\\2">',
         html,
         flags=re.IGNORECASE,
@@ -258,6 +259,105 @@ async def receive_target(message: Message, state: FSMContext):
         await message.answer(caption or "-", reply_markup=markup)
 
     await message.answer(t(lang, "post_confirm_prompt", target=str(target)), reply_markup=confirm_kb(lang))
+
+
+@router.callback_query(PostForm.confirm, F.data == "post:edit:text")
+async def edit_post_text(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("lang", "en")
+
+    await state.set_state(PostForm.text)
+    await call.message.edit_text(
+        t(lang, "post_ask_text"),
+        reply_markup=cancel_kb(lang),
+    )
+    await call.answer()
+
+
+@router.callback_query(PostForm.confirm, F.data == "post:edit:media")
+async def edit_post_media(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("lang", "en")
+
+    await state.set_state(PostForm.media)
+    await call.message.edit_text(
+        t(lang, "post_ask_media"),
+        reply_markup=skip_cancel_kb(lang),
+    )
+    await call.answer()
+
+
+@router.callback_query(PostForm.confirm, F.data == "post:edit:buttons")
+async def edit_post_buttons(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("lang", "en")
+
+    await state.set_state(PostForm.buttons)
+    await call.message.edit_text(
+        t(lang, "post_ask_buttons"),
+        reply_markup=skip_cancel_kb(lang),
+    )
+    await call.answer()
+
+
+@router.callback_query(PostForm.confirm, F.data == "post:edit:target")
+async def edit_post_target(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("lang", "en")
+
+    await state.set_state(PostForm.target)
+    await call.message.edit_text(
+        t(lang, "post_ask_target"),
+        reply_markup=cancel_kb(lang),
+    )
+    await call.answer()
+
+
+@router.callback_query(PostForm.confirm, F.data == "post:save")
+async def save_post_start(call: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("lang", "en")
+
+    await state.set_state(PostForm.save_name)
+
+    await call.message.edit_text(
+        t(lang, "saved_post_name_prompt"),
+        reply_markup=cancel_kb(lang),
+    )
+    await call.answer()
+
+
+@router.message(PostForm.save_name)
+async def save_post_finish(message: Message, state: FSMContext):
+    data = await state.get_data()
+    lang = data.get("lang", "en")
+
+    name = (message.text or "").strip()
+
+    if not name:
+        await message.answer(
+            t(lang, "saved_post_name_empty"),
+            reply_markup=cancel_kb(lang),
+        )
+        return
+
+    post = save_post(
+        user_id=message.from_user.id,
+        name=name,
+        caption=data.get("caption", ""),
+        media=data.get("media"),
+        buttons=data.get("buttons"),
+        target=data.get("target"),
+    )
+
+    await state.clear()
+
+    await message.answer(
+        f"{t(lang, 'saved_post_saved')}\n\n"
+        f"<b>{name}</b>\n"
+        f"<code>{post['code']}</code>",
+        reply_markup=main_menu_kb(lang),
+    )
 
 
 @router.callback_query(PostForm.confirm, F.data == "post:send")

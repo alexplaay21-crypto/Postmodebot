@@ -33,5 +33,21 @@
   "error_chat_not_found": "チャットが見つかりません：\n• @ユーザー名 または ID を確認してください\n• プライベートチャンネルには -100… のような数値 ID が必要です\n• ボットがそのチャットのメンバーである必要があります",
   "error_forbidden": "ボットにはそこへ投稿する権限がありません：\n• ボットをチャンネル/グループに追加してください\n• チャンネルの場合、ボットは「メッセージの投稿」権限を持つ管理者である必要があります",
   "error_file_too_big": "ファイルが大きすぎて Bot API 経由でアップロードできません。より小さいファイルを試してください。",
-  "error_generic": "Telegram がエラーを返しました：{description}"
+  "error_generic": "Telegram がエラーを返しました：{description}",
+  "menu_saved_posts": "💾 保存した投稿",
+  "btn_save_post": "💾 投稿を保存",
+  "btn_edit_text": "✏️ テキストを編集",
+  "btn_edit_media": "🖼 メディアを編集",
+  "btn_edit_buttons": "🔘 ボタンを編集",
+  "btn_edit_target": "🎯 チャンネルを編集",
+  "saved_posts_title": "💾 保存した投稿",
+  "saved_posts_empty": "保存した投稿はまだありません。",
+  "saved_posts_choose": "投稿を選択してください：",
+  "saved_post_name_prompt": "💾 投稿の名前を入力してください：",
+  "saved_post_name_empty": "名前を空にすることはできません。名前を入力してください：",
+  "saved_post_saved": "💾 投稿を保存しました。",
+  "saved_post_not_found": "投稿が見つかりません。",
+  "saved_post_deleted": "投稿を削除しました。",
+  "btn_saved_delete": "🗑 削除",
+  "btn_saved_back": "◀️ 一覧に戻る"
 }

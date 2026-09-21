@@ -1,0 +1,36 @@
+[33m579ff40[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Preserve Telegram custom emoji
+ bot/handlers/post.py | 92 [32m++++++++++++++++++++++[m[31m------[m
+ 1 file changed, 72 insertions(+), 20 deletions(-)
+[33m4bc74d3[m Modify BOT_TOKEN and ADMIN_ID in config.py
+ config.py | 4 [32m++[m[31m--[m
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+[33mba32767[m Initial upload
+ .gitignore                  |   4 [32m+[m
+ LICENSE                     |  21 [32m+[m
+ README.md                   | 128 [32m++++++[m
+ bot/__init__.py             |   0
+ bot/handlers/__init__.py    |   0
+ bot/handlers/donate.py      |  64 [32m+++[m
+ bot/handlers/language.py    |  34 [32m++[m
+ bot/handlers/post.py        | 246 [32m++++++++++[m
+ bot/handlers/start.py       |  43 [32m++[m
+ bot/keyboards.py            |  61 [32m+++[m
+ bot/storage.py              |  43 [32m++[m
+ bot/texts.py                |  77 [32m++++[m
+ config.py                   |  14 [32m+[m
+ locales/ar.json             |  37 [32m++[m
+ locales/en.json             |  37 [32m++[m
+ locales/es.json             |  37 [32m++[m
+ locales/fa.json             |  37 [32m++[m
+ locales/fr.json             |  37 [32m++[m
+ locales/hi.json             |  37 [32m++[m
+ locales/id.json             |  37 [32m++[m
+ locales/ja.json             |  37 [32m++[m
+ locales/pt.json             |  37 [32m++[m
+ locales/ru.json             |  37 [32m++[m
+ locales/tg.json             |  37 [32m++[m
+ locales/zh.json             |  37 [32m++[m
+ main.py                     |  32 [32m++[m
+ requirements.txt            |   1 [32m+[m
+ scripts/generate_locales.py | 485 [32m++++++++++++++++++++[m
+ 28 files changed, 1697 insertions(+)

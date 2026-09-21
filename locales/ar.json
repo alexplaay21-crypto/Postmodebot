@@ -33,5 +33,21 @@
   "error_chat_not_found": "لم يتم العثور على الدردشة:\n• تحقّق من @اسم_المستخدم أو المعرّف\n• القنوات الخاصة تتطلّب معرّفًا رقميًا مثل -100…\n• يجب أن يكون البوت عضوًا في تلك الدردشة",
   "error_forbidden": "لا يُسمح للبوت بالنشر هناك:\n• أضف البوت إلى القناة/المجموعة\n• بالنسبة للقنوات، يجب أن يكون البوت مشرفًا بصلاحية «نشر الرسائل»",
   "error_file_too_big": "الملف كبير جدًا للرفع عبر واجهة Bot API. جرّب ملفًا أصغر.",
-  "error_generic": "أعاد تيليجرام خطأً: {description}"
+  "error_generic": "أعاد تيليجرام خطأً: {description}",
+  "menu_saved_posts": "💾 المنشورات المحفوظة",
+  "btn_save_post": "💾 حفظ المنشور",
+  "btn_edit_text": "✏️ تعديل النص",
+  "btn_edit_media": "🖼 تعديل الوسائط",
+  "btn_edit_buttons": "🔘 تعديل الأزرار",
+  "btn_edit_target": "🎯 تعديل القناة",
+  "saved_posts_title": "💾 المنشورات المحفوظة",
+  "saved_posts_empty": "لا توجد منشورات محفوظة لديك حتى الآن.",
+  "saved_posts_choose": "اختر منشورًا:",
+  "saved_post_name_prompt": "💾 أدخل اسمًا للمنشور:",
+  "saved_post_name_empty": "لا يمكن أن يكون الاسم فارغًا. أدخل اسمًا:",
+  "saved_post_saved": "💾 تم حفظ المنشور.",
+  "saved_post_not_found": "لم يتم العثور على المنشور.",
+  "saved_post_deleted": "تم حذف المنشور.",
+  "btn_saved_delete": "🗑 حذف",
+  "btn_saved_back": "◀️ العودة إلى القائمة"
 }

@@ -33,5 +33,21 @@
   "error_chat_not_found": "No se encontró el chat:\n• revisa el @usuario o el ID\n• los canales privados necesitan un ID numérico tipo -100…\n• el bot debe ser miembro de ese chat",
   "error_forbidden": "El bot no tiene permiso para publicar ahí:\n• añade el bot al canal/grupo\n• en canales, el bot debe ser administrador con permiso para «Publicar mensajes»",
   "error_file_too_big": "El archivo es demasiado grande para subirlo mediante la Bot API. Prueba con un archivo más pequeño.",
-  "error_generic": "Telegram devolvió un error: {description}"
+  "error_generic": "Telegram devolvió un error: {description}",
+  "menu_saved_posts": "💾 Publicaciones guardadas",
+  "btn_save_post": "💾 Guardar publicación",
+  "btn_edit_text": "✏️ Editar texto",
+  "btn_edit_media": "🖼 Editar multimedia",
+  "btn_edit_buttons": "🔘 Editar botones",
+  "btn_edit_target": "🎯 Editar canal",
+  "saved_posts_title": "💾 Publicaciones guardadas",
+  "saved_posts_empty": "Todavía no tienes publicaciones guardadas.",
+  "saved_posts_choose": "Elige una publicación:",
+  "saved_post_name_prompt": "💾 Introduce un nombre para la publicación:",
+  "saved_post_name_empty": "El nombre no puede estar vacío. Introduce un nombre:",
+  "saved_post_saved": "💾 Publicación guardada.",
+  "saved_post_not_found": "Publicación no encontrada.",
+  "saved_post_deleted": "Publicación eliminada.",
+  "btn_saved_delete": "🗑 Eliminar",
+  "btn_saved_back": "◀️ Volver a la lista"
 }

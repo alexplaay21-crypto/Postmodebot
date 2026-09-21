@@ -7,7 +7,7 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from config import BOT_TOKEN
-from bot.handlers import donate, language, post, start
+from bot.handlers import donate, language, post, saved_posts, start
 
 
 async def main() -> None:
@@ -23,6 +23,7 @@ async def main() -> None:
     dp.include_router(language.router)
     dp.include_router(donate.router)
     dp.include_router(post.router)
+    dp.include_router(saved_posts.router)
 
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)

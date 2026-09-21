@@ -8,6 +8,7 @@ from config import DONATE_STAR_AMOUNTS
 def main_menu_kb(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text=t(lang, "menu_create_post"), callback_data="menu:create")],
+        [InlineKeyboardButton(text=t(lang, "menu_saved_posts"), callback_data="menu:saved")],
         [InlineKeyboardButton(text=t(lang, "menu_language"), callback_data="menu:language")],
         [InlineKeyboardButton(text=t(lang, "menu_donate"), callback_data="menu:donate")],
         [InlineKeyboardButton(text=t(lang, "menu_help"), callback_data="menu:help")],
@@ -42,10 +43,49 @@ def skip_cancel_kb(lang: str) -> InlineKeyboardMarkup:
 
 def confirm_kb(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=t(lang, "btn_confirm_send"), callback_data="post:send")],
-        [InlineKeyboardButton(text=t(lang, "btn_cancel"), callback_data="post:cancel")],
+        [
+            InlineKeyboardButton(
+                text=t(lang, "btn_edit_text"),
+                callback_data="post:edit:text",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(lang, "btn_edit_media"),
+                callback_data="post:edit:media",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(lang, "btn_edit_buttons"),
+                callback_data="post:edit:buttons",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(lang, "btn_edit_target"),
+                callback_data="post:edit:target",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(lang, "btn_save_post"),
+                callback_data="post:save",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(lang, "btn_confirm_send"),
+                callback_data="post:send",
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text=t(lang, "btn_cancel"),
+                callback_data="post:cancel",
+            )
+        ],
     ])
-
 
 def donate_amounts_kb(lang: str) -> InlineKeyboardMarkup:
     """Two amounts per row, e.g. [50⭐ 100⭐] [250⭐ 500⭐] [1000⭐ 2500⭐] + back."""
