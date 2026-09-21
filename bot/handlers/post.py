@@ -24,6 +24,27 @@ class PostForm(StatesGroup):
 
 # ---------- helpers ----------
 
+def _preserve_custom_emoji(message: Message) -> str:
+    """
+    Return Telegram HTML while preserving Premium/Custom Emoji.
+
+    aiogram versions with the custom_emoji HTML bug may produce
+    emoji_id="..." instead of the Telegram-required emoji-id="...".
+    Normalize it before sending.
+    """
+    html = message.html_text or message.text or message.caption or ""
+
+    # aiogram bug/compatibility: emoji_id -> emoji-id
+    html = re.sub(
+        r'<tg-emoji\\s+emoji_id=(["\\'])(\\d+)\\1>',
+        r'<tg-emoji emoji-id="\\2">',
+        html,
+        flags=re.IGNORECASE,
+    )
+
+    return html
+
+
 def normalize_chat_target(raw: str):
     """
     Accepts https://t.me/name, t.me/name, @name, bare name, or a numeric chat id
@@ -57,32 +78,63 @@ _BUTTON_COLOR_EMOJI = {
 
 def parse_buttons(raw: str):
     """
-    Each non-empty line looks like:
-        'Button text - https://example.com'
-        'Button text - https://example.com - green'   (optional color: blue/green/red)
-    Returns a list of single-button rows (stacked), or None if nothing valid was found.
+    Button syntax:
+
+        Купить - https://site.com | Подробнее - https://site.com/info | Канал - https://t.me/test
+
+    "|" separates buttons in the same row.
+    A newline starts a new row.
+
+    Optional color suffix is accepted:
+        Купить - https://site.com - green
+        Подробнее - https://site.com - blue
+        Канал - https://site.com - red
+
+    Telegram does not support actual inline-button colors, so the color
+    value is accepted for future/custom handling but is not displayed
+    inside the button text.
     """
     rows = []
+
     for line in (raw or "").splitlines():
         line = line.strip()
-        if not line or " - " not in line:
+        if not line:
             continue
 
-        parts = [p.strip() for p in line.split(" - ")]
-        color = None
-        if len(parts) >= 3 and parts[-1].lower() in _BUTTON_COLOR_EMOJI:
-            color = parts[-1].lower()
-            url_part = parts[-2]
-            text_part = " - ".join(parts[:-2]).strip()
-        else:
-            url_part = parts[-1]
-            text_part = " - ".join(parts[:-1]).strip()
+        row = []
 
-        if not text_part or not url_part.startswith(("http://", "https://", "tg://")):
-            continue
+        for item in line.split("|"):
+            item = item.strip()
+            if not item or " - " not in item:
+                continue
 
-        label = f"{_BUTTON_COLOR_EMOJI[color]} {text_part}" if color else text_part
-        rows.append([InlineKeyboardButton(text=label, url=url_part)])
+            parts = [p.strip() for p in item.split(" - ")]
+
+            color = None
+            if len(parts) >= 3 and parts[-1].lower() in {"green", "blue", "red"}:
+                color = parts[-1].lower()
+                url_part = parts[-2]
+                text_part = " - ".join(parts[:-2]).strip()
+            else:
+                url_part = parts[-1]
+                text_part = " - ".join(parts[:-1]).strip()
+
+            if not text_part:
+                continue
+
+            if not url_part.startswith(("http://", "https://", "tg://")):
+                continue
+
+            row.append(
+                InlineKeyboardButton(
+                    text=text_part,
+                    url=url_part,
+                )
+            )
+
+        if row:
+            rows.append(row)
+
     return rows or None
 
 
@@ -127,7 +179,7 @@ async def start_post(call: CallbackQuery, state: FSMContext):
 async def receive_text(message: Message, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "en")
-    caption = message.html_text or message.text or message.caption or ""
+    caption = _preserve_custom_emoji(message)
     await state.update_data(caption=caption)
     await state.set_state(PostForm.media)
     await message.answer(t(lang, "post_ask_media"), reply_markup=skip_cancel_kb(lang))
