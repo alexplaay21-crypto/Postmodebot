@@ -55,8 +55,12 @@ def init_db() -> None:
                 media_json TEXT,
                 buttons_json TEXT,
                 target TEXT,
+                entities_json TEXT,
                 created_at TIMESTAMPTZ NOT NULL
             );
+
+            ALTER TABLE posts
+                ADD COLUMN IF NOT EXISTS entities_json TEXT;
 
             CREATE INDEX IF NOT EXISTS idx_posts_user_id
                 ON posts(user_id);
@@ -248,6 +252,7 @@ def save_post(
     media,
     buttons,
     target,
+    entities=None,
 ) -> dict:
     with connect() as conn:
         code = _generate_post_code(conn)
@@ -260,6 +265,7 @@ def save_post(
             "media": media,
             "buttons": buttons,
             "target": target,
+            "entities": entities,
         }
 
         conn.execute(
@@ -272,9 +278,10 @@ def save_post(
                 media_json,
                 buttons_json,
                 target,
+                entities_json,
                 created_at
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 code,
@@ -284,6 +291,7 @@ def save_post(
                 _json(media),
                 _json(buttons),
                 str(target) if target is not None else None,
+                _json(entities),
                 now_iso(),
             ),
         )
@@ -300,6 +308,7 @@ def _row_to_post(row) -> dict:
         "media": _from_json(row["media_json"]),
         "buttons": _from_json(row["buttons_json"]),
         "target": row["target"],
+        "entities": _from_json(row["entities_json"]) if "entities_json" in row else None,
         "created_at": row["created_at"],
     }
 

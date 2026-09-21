@@ -260,6 +260,7 @@ async def inline_saved_posts(query: InlineQuery):
         caption = post.get("caption") or ""
         markup = _post_markup(post.get("buttons"))
         media = post.get("media")
+        entities = post.get("entities")
 
         if media and media.get("type") == "photo":
             results.append(
@@ -269,7 +270,8 @@ async def inline_saved_posts(query: InlineQuery):
                     title=name,
                     description=_description(post),
                     caption=caption or None,
-                    parse_mode="HTML",
+                    parse_mode="HTML" if not entities else None,
+                    caption_entities=entities,
                     reply_markup=markup,
                 )
             )
@@ -282,6 +284,8 @@ async def inline_saved_posts(query: InlineQuery):
                     title=name,
                     description=_description(post),
                     caption=caption or None,
+                    parse_mode="HTML" if not entities else None,
+                    caption_entities=entities,
                     reply_markup=markup,
                 )
             )
@@ -294,7 +298,8 @@ async def inline_saved_posts(query: InlineQuery):
                     title=name,
                     description=_description(post),
                     caption=caption or None,
-                    parse_mode="HTML",
+                    parse_mode="HTML" if not entities else None,
+                    caption_entities=entities,
                     reply_markup=markup,
                 )
             )
@@ -307,7 +312,8 @@ async def inline_saved_posts(query: InlineQuery):
                     description=_description(post),
                     input_message_content=InputTextMessageContent(
                         message_text=caption or "-",
-                        parse_mode="HTML",
+                        parse_mode="HTML" if not entities else None,
+                        entities=entities,
                     ),
                     reply_markup=markup,
                 )

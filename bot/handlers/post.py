@@ -357,6 +357,7 @@ async def save_post_finish(message: Message, state: FSMContext):
         media=data.get("media"),
         buttons=data.get("buttons"),
         target=data.get("target"),
+        entities=data.get("entities"),
     )
 
     await state.clear()
