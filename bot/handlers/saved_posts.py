@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import html
+import logging
+
 from aiogram import Router, F
 from aiogram.types import (
     CallbackQuery,
@@ -10,10 +13,11 @@ from aiogram.types import (
     InlineQueryResultCachedGif,
     InlineQueryResultCachedDocument,
     InlineQueryResultCachedPhoto,
+    InlineQueryResultCachedVideo,
     InputTextMessageContent,
 )
 
-from bot.keyboards import main_menu_kb
+from bot.keyboards import buttons_markup, main_menu_kb
 from bot.storage import (
     delete_post,
     get_post,
@@ -25,22 +29,7 @@ from bot.texts import t
 router = Router(name="saved_posts")
 
 
-def _post_markup(buttons):
-    if not buttons:
-        return None
-
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text=button.get("text", ""),
-                    url=button.get("url"),
-                )
-                for button in row
-            ]
-            for row in buttons
-        ]
-    )
+_post_markup = buttons_markup
 
 
 def _description(post: dict) -> str:
@@ -122,7 +111,7 @@ async def saved_post_view(call: CallbackQuery):
     buttons = _post_markup(post.get("buttons"))
 
     text = (
-        f"<b>{post['name']}</b>\n\n"
+        f"<b>{html.escape(post['name'])}</b>\n\n"
         f"<code>{post['code']}</code>"
     )
 
@@ -167,6 +156,13 @@ async def saved_post_view(call: CallbackQuery):
                     parse_mode="HTML",
                     reply_markup=buttons,
                 )
+            elif media["type"] == "video":
+                await call.message.answer_video(
+                    media["file_id"],
+                    caption=post.get("caption") or None,
+                    parse_mode="HTML",
+                    reply_markup=buttons,
+                )
             elif media["type"] == "document":
                 await call.message.answer_document(
                     media["file_id"],
@@ -175,7 +171,7 @@ async def saved_post_view(call: CallbackQuery):
                     reply_markup=buttons,
                 )
         except Exception:
-            pass
+            logging.exception("saved post preview failed")
     else:
         await call.message.answer(
             post.get("caption") or "-",
@@ -281,6 +277,20 @@ async def inline_saved_posts(query: InlineQuery):
                 InlineQueryResultCachedGif(
                     id=code,
                     animation_file_id=media["file_id"],
+                    title=name,
+                    description=_description(post),
+                    caption=caption or None,
+                    parse_mode="HTML" if not entities else None,
+                    caption_entities=entities,
+                    reply_markup=markup,
+                )
+            )
+
+        elif media and media.get("type") == "video":
+            results.append(
+                InlineQueryResultCachedVideo(
+                    id=code,
+                    video_file_id=media["file_id"],
                     title=name,
                     description=_description(post),
                     caption=caption or None,

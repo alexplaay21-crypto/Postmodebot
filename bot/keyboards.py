@@ -99,3 +99,24 @@ def donate_amounts_kb(lang: str) -> InlineKeyboardMarkup:
         rows.append(row)
     rows.append([InlineKeyboardButton(text=t(lang, "btn_back"), callback_data="menu:back")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def buttons_markup(buttons) -> InlineKeyboardMarkup | None:
+    """
+    Builds a keyboard from stored button dicts:
+    [[{"text": "...", "url": "...", "style": "primary|success|danger"}, ...], ...]
+    Plain dicts (not aiogram objects) so they can be saved to the database as JSON.
+    """
+    rows = []
+    for row in buttons or []:
+        built = []
+        for b in row:
+            if not isinstance(b, dict) or not b.get("text") or not b.get("url"):
+                continue
+            kwargs = {"text": b["text"], "url": b["url"]}
+            if b.get("style"):
+                kwargs["style"] = b["style"]
+            built.append(InlineKeyboardButton(**kwargs))
+        if built:
+            rows.append(built)
+    return InlineKeyboardMarkup(inline_keyboard=rows) if rows else None
