@@ -9,6 +9,7 @@ from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMar
 
 from bot.keyboards import cancel_kb, confirm_kb, main_menu_kb, skip_cancel_kb
 from bot.storage import get_user_language, save_post
+from bot.monitoring import record_post_created, record_post_sent, track_chat, record_error
 from bot.texts import t
 
 router = Router(name="post")
@@ -205,7 +206,9 @@ async def receive_media(message: Message, state: FSMContext):
 async def skip_media(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "en")
-    await state.update_data(media=None)
+    if not data.get("editing"):
+        await state.update_data(media=None)
+
     await state.set_state(PostForm.buttons)
     await call.message.edit_text(t(lang, "post_ask_buttons"), reply_markup=skip_cancel_kb(lang))
     await call.answer()
@@ -224,7 +227,9 @@ async def receive_buttons(message: Message, state: FSMContext):
 async def skip_buttons(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "en")
-    await state.update_data(buttons=None)
+    if not data.get("editing"):
+        await state.update_data(buttons=None)
+
     await state.set_state(PostForm.target)
     await call.message.edit_text(t(lang, "post_ask_target"), reply_markup=cancel_kb(lang))
     await call.answer()
@@ -266,6 +271,7 @@ async def edit_post_text(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "en")
 
+    await state.update_data(editing=True)
     await state.set_state(PostForm.text)
     await call.message.edit_text(
         t(lang, "post_ask_text"),
@@ -279,6 +285,7 @@ async def edit_post_media(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "en")
 
+    await state.update_data(editing=True)
     await state.set_state(PostForm.media)
     await call.message.edit_text(
         t(lang, "post_ask_media"),
@@ -292,6 +299,7 @@ async def edit_post_buttons(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "en")
 
+    await state.update_data(editing=True)
     await state.set_state(PostForm.buttons)
     await call.message.edit_text(
         t(lang, "post_ask_buttons"),
@@ -305,6 +313,7 @@ async def edit_post_target(call: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     lang = data.get("lang", "en")
 
+    await state.update_data(editing=True)
     await state.set_state(PostForm.target)
     await call.message.edit_text(
         t(lang, "post_ask_target"),
