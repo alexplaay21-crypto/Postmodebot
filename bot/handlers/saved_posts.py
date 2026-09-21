@@ -7,7 +7,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     InlineQuery,
     InlineQueryResultArticle,
-    InlineQueryResultCachedAnimation,
+    InlineQueryResultCachedGif,
     InlineQueryResultCachedDocument,
     InlineQueryResultCachedPhoto,
     InputTextMessageContent,
@@ -276,7 +276,7 @@ async def inline_saved_posts(query: InlineQuery):
 
         elif media and media.get("type") == "animation":
             results.append(
-                InlineQueryResultCachedAnimation(
+                InlineQueryResultCachedGif(
                     id=code,
                     animation_file_id=media["file_id"],
                     title=name,
