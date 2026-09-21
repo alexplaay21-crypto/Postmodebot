@@ -1,14 +1,10 @@
-# PostModeBot configuration.
-# Fill these in before running the bot.
+import os
 
 # Token from @BotFather
-BOT_TOKEN = ""
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
 
-# Your numeric Telegram user ID (get it from @userinfobot).
-# Reserved for future admin-only features (e.g. broadcast, stats).
-ADMIN_ID = 122
+# Your numeric Telegram user ID
+ADMIN_ID = int(os.getenv("ADMIN_ID", "122"))
 
-# Donation amounts offered on the "💰 Support the author" screen, in
-# Telegram Stars (XTR). Stars are Telegram's own in-app currency — no
-# provider token, bank card, or external service is needed to accept them.
+# Telegram Stars donation amounts
 DONATE_STAR_AMOUNTS = [50, 100, 250, 500, 1000, 2500]
