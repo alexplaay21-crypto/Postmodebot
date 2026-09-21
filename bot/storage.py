@@ -33,7 +33,7 @@ def _atomic_write(path: str, data: dict) -> None:
     """
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    temp_path = f"{path}.tmp"
+    temp_path = f"{path}.{secrets.token_hex(8)}.tmp"
     backup_path = f"{path}.bak"
 
     # Keep a backup of the current valid file.
@@ -91,7 +91,7 @@ def _atomic_write_without_backup(path: str, data: dict) -> None:
     """Atomic write used during recovery to avoid overwriting the backup."""
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    temp_path = f"{path}.recover.tmp"
+    temp_path = f"{path}.{secrets.token_hex(8)}.recover.tmp"
 
     with open(temp_path, "w", encoding="utf-8") as f:
         json.dump(
