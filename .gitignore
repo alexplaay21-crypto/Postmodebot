@@ -1,4 +1,8 @@
 __pycache__/
 *.pyc
-data/users.json
+*.bak
+*.patch
+*.tgz
 .venv/
+.env
+data/users.json
