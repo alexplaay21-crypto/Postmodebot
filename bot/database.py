@@ -3,83 +3,81 @@
 import json
 import os
 import secrets
-import sqlite3
 import string
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
-DB_PATH = DATA_DIR / "bot.db"
+import psycopg
+from psycopg.rows import dict_row
 
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+DATABASE_URL = os.getenv("DATABASE_URL", "")
 
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def connect() -> sqlite3.Connection:
-    conn = sqlite3.connect(
-        DB_PATH,
-        timeout=30,
-        check_same_thread=False,
+def connect():
+    if not DATABASE_URL:
+        raise RuntimeError(
+            "DATABASE_URL is not set. "
+            "Add PostgreSQL DATABASE_URL to environment."
+        )
+
+    return psycopg.connect(
+        DATABASE_URL,
+        row_factory=dict_row,
     )
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    conn.execute("PRAGMA busy_timeout=30000")
-    return conn
 
 
 def init_db() -> None:
     with connect() as conn:
-        conn.executescript(
+        conn.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
-                user_id INTEGER PRIMARY KEY,
+                user_id BIGINT PRIMARY KEY,
                 language TEXT NOT NULL DEFAULT 'en',
                 username TEXT,
                 first_name TEXT,
                 last_name TEXT,
-                first_seen TEXT NOT NULL,
-                last_seen TEXT NOT NULL,
+                first_seen TIMESTAMPTZ NOT NULL,
+                last_seen TIMESTAMPTZ NOT NULL,
                 posts_created INTEGER NOT NULL DEFAULT 0,
                 posts_sent INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS posts (
                 code TEXT PRIMARY KEY,
-                user_id INTEGER NOT NULL,
+                user_id BIGINT NOT NULL,
                 name TEXT NOT NULL,
                 caption TEXT NOT NULL DEFAULT '',
                 media_json TEXT,
                 buttons_json TEXT,
                 target TEXT,
-                created_at TEXT NOT NULL
+                created_at TIMESTAMPTZ NOT NULL
             );
 
             CREATE INDEX IF NOT EXISTS idx_posts_user_id
                 ON posts(user_id);
 
             CREATE TABLE IF NOT EXISTS chats (
-                chat_id INTEGER PRIMARY KEY,
+                chat_id BIGINT PRIMARY KEY,
                 type TEXT,
                 title TEXT,
                 username TEXT,
                 status TEXT,
-                first_seen TEXT NOT NULL,
-                last_seen TEXT NOT NULL,
-                last_user_id INTEGER
+                first_seen TIMESTAMPTZ NOT NULL,
+                last_seen TIMESTAMPTZ NOT NULL,
+                last_user_id BIGINT
             );
 
             CREATE TABLE IF NOT EXISTS events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                time TEXT NOT NULL,
+                id BIGSERIAL PRIMARY KEY,
+                time TIMESTAMPTZ NOT NULL,
                 type TEXT NOT NULL,
-                user_id INTEGER,
-                chat_id INTEGER,
+                user_id BIGINT,
+                chat_id BIGINT,
                 details TEXT
             );
 
@@ -87,11 +85,11 @@ def init_db() -> None:
                 ON events(time);
 
             CREATE TABLE IF NOT EXISTS errors (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                time TEXT NOT NULL,
+                id BIGSERIAL PRIMARY KEY,
+                time TIMESTAMPTZ NOT NULL,
                 error TEXT NOT NULL,
-                user_id INTEGER,
-                chat_id INTEGER,
+                user_id BIGINT,
+                chat_id BIGINT,
                 details TEXT
             );
 
@@ -99,7 +97,7 @@ def init_db() -> None:
                 ON errors(time);
 
             CREATE TABLE IF NOT EXISTS blocked_users (
-                user_id INTEGER PRIMARY KEY
+                user_id BIGINT PRIMARY KEY
             );
 
             CREATE TABLE IF NOT EXISTS settings (
@@ -108,16 +106,17 @@ def init_db() -> None:
             );
 
             CREATE TABLE IF NOT EXISTS broadcasts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                time TEXT NOT NULL,
+                id BIGSERIAL PRIMARY KEY,
+                time TIMESTAMPTZ NOT NULL,
                 target TEXT,
                 total INTEGER NOT NULL DEFAULT 0,
                 success INTEGER NOT NULL DEFAULT 0,
                 failed INTEGER NOT NULL DEFAULT 0
             );
 
-            INSERT OR IGNORE INTO settings(key, value)
-            VALUES('maintenance_mode', 'false');
+            INSERT INTO settings(key, value)
+            VALUES ('maintenance_mode', 'false')
+            ON CONFLICT(key) DO NOTHING;
             """
         )
 
@@ -131,6 +130,7 @@ def _json(value: Any) -> str | None:
 def _from_json(value: str | None) -> Any:
     if value is None:
         return None
+
     try:
         return json.loads(value)
     except Exception:
@@ -150,15 +150,20 @@ def ensure_user(
         conn.execute(
             """
             INSERT INTO users(
-                user_id, language, username, first_name,
-                last_name, first_seen, last_seen
+                user_id,
+                language,
+                username,
+                first_name,
+                last_name,
+                first_seen,
+                last_seen
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT(user_id) DO UPDATE SET
-                username = excluded.username,
-                first_name = excluded.first_name,
-                last_name = excluded.last_name,
-                last_seen = excluded.last_seen
+                username = EXCLUDED.username,
+                first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name,
+                last_seen = EXCLUDED.last_seen
             """,
             (
                 int(user_id),
@@ -172,10 +177,17 @@ def ensure_user(
         )
 
 
-def get_user_language(user_id: int, fallback: str = "en") -> str:
+def get_user_language(
+    user_id: int,
+    fallback: str = "en",
+) -> str:
     with connect() as conn:
         row = conn.execute(
-            "SELECT language FROM users WHERE user_id = ?",
+            """
+            SELECT language
+            FROM users
+            WHERE user_id = %s
+            """,
             (int(user_id),),
         ).fetchone()
 
@@ -192,12 +204,15 @@ def set_user_language(user_id: int, lang: str) -> None:
         conn.execute(
             """
             INSERT INTO users(
-                user_id, language, first_seen, last_seen
+                user_id,
+                language,
+                first_seen,
+                last_seen
             )
-            VALUES (?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s)
             ON CONFLICT(user_id) DO UPDATE SET
-                language = excluded.language,
-                last_seen = excluded.last_seen
+                language = EXCLUDED.language,
+                last_seen = EXCLUDED.last_seen
             """,
             (
                 int(user_id),
@@ -208,7 +223,7 @@ def set_user_language(user_id: int, lang: str) -> None:
         )
 
 
-def _generate_post_code(conn: sqlite3.Connection) -> str:
+def _generate_post_code(conn) -> str:
     alphabet = string.ascii_uppercase + string.digits
 
     while True:
@@ -218,7 +233,7 @@ def _generate_post_code(conn: sqlite3.Connection) -> str:
         )
 
         exists = conn.execute(
-            "SELECT 1 FROM posts WHERE code = ?",
+            "SELECT 1 FROM posts WHERE code = %s",
             (code,),
         ).fetchone()
 
@@ -259,7 +274,7 @@ def save_post(
                 target,
                 created_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 code,
@@ -276,7 +291,7 @@ def save_post(
     return post
 
 
-def _row_to_post(row: sqlite3.Row) -> dict:
+def _row_to_post(row) -> dict:
     return {
         "code": row["code"],
         "user_id": int(row["user_id"]),
@@ -295,7 +310,7 @@ def get_user_posts(user_id: int) -> list[dict]:
             """
             SELECT *
             FROM posts
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY LOWER(name)
             """,
             (int(user_id),),
@@ -310,8 +325,8 @@ def get_post(user_id: int, code: str) -> dict | None:
             """
             SELECT *
             FROM posts
-            WHERE code = ?
-              AND user_id = ?
+            WHERE code = %s
+              AND user_id = %s
             """,
             (
                 code.upper(),
@@ -324,11 +339,11 @@ def get_post(user_id: int, code: str) -> dict | None:
 
 def delete_post(user_id: int, code: str) -> bool:
     with connect() as conn:
-        cursor = conn.execute(
+        result = conn.execute(
             """
             DELETE FROM posts
-            WHERE code = ?
-              AND user_id = ?
+            WHERE code = %s
+              AND user_id = %s
             """,
             (
                 code.upper(),
@@ -336,10 +351,12 @@ def delete_post(user_id: int, code: str) -> bool:
             ),
         )
 
-    return cursor.rowcount > 0
+    return result.rowcount > 0
 
 
 def increment_posts_created(user_id: int) -> None:
+    now = now_iso()
+
     with connect() as conn:
         conn.execute(
             """
@@ -349,20 +366,22 @@ def increment_posts_created(user_id: int) -> None:
                 last_seen,
                 posts_created
             )
-            VALUES (?, ?, ?, 1)
+            VALUES (%s, %s, %s, 1)
             ON CONFLICT(user_id) DO UPDATE SET
-                posts_created = posts_created + 1,
-                last_seen = excluded.last_seen
+                posts_created = users.posts_created + 1,
+                last_seen = EXCLUDED.last_seen
             """,
             (
                 int(user_id),
-                now_iso(),
-                now_iso(),
+                now,
+                now,
             ),
         )
 
 
 def increment_posts_sent(user_id: int) -> None:
+    now = now_iso()
+
     with connect() as conn:
         conn.execute(
             """
@@ -372,15 +391,15 @@ def increment_posts_sent(user_id: int) -> None:
                 last_seen,
                 posts_sent
             )
-            VALUES (?, ?, ?, 1)
+            VALUES (%s, %s, %s, 1)
             ON CONFLICT(user_id) DO UPDATE SET
-                posts_sent = posts_sent + 1,
-                last_seen = excluded.last_seen
+                posts_sent = users.posts_sent + 1,
+                last_seen = EXCLUDED.last_seen
             """,
             (
                 int(user_id),
-                now_iso(),
-                now_iso(),
+                now,
+                now,
             ),
         )
 
@@ -401,7 +420,7 @@ def record_event(
                 chat_id,
                 details
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (
                 now_iso(),
@@ -429,7 +448,7 @@ def record_error(
                 chat_id,
                 details
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (
                 now_iso(),
@@ -464,18 +483,18 @@ def track_chat(
                 last_seen,
                 last_user_id
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT(chat_id) DO UPDATE SET
-                type = excluded.type,
-                title = excluded.title,
-                username = excluded.username,
+                type = EXCLUDED.type,
+                title = EXCLUDED.title,
+                username = EXCLUDED.username,
                 status = COALESCE(
-                    excluded.status,
+                    EXCLUDED.status,
                     chats.status
                 ),
-                last_seen = excluded.last_seen,
+                last_seen = EXCLUDED.last_seen,
                 last_user_id = COALESCE(
-                    excluded.last_user_id,
+                    EXCLUDED.last_user_id,
                     chats.last_user_id
                 )
             """,
@@ -502,13 +521,17 @@ def track_chat(
     )
 
 
-def set_blocked(user_id: int, blocked: bool = True) -> None:
+def set_blocked(
+    user_id: int,
+    blocked: bool = True,
+) -> None:
     with connect() as conn:
         if blocked:
             conn.execute(
                 """
-                INSERT OR IGNORE INTO blocked_users(user_id)
-                VALUES (?)
+                INSERT INTO blocked_users(user_id)
+                VALUES (%s)
+                ON CONFLICT(user_id) DO NOTHING
                 """,
                 (int(user_id),),
             )
@@ -516,7 +539,7 @@ def set_blocked(user_id: int, blocked: bool = True) -> None:
             conn.execute(
                 """
                 DELETE FROM blocked_users
-                WHERE user_id = ?
+                WHERE user_id = %s
                 """,
                 (int(user_id),),
             )
@@ -528,7 +551,7 @@ def is_blocked(user_id: int) -> bool:
             """
             SELECT 1
             FROM blocked_users
-            WHERE user_id = ?
+            WHERE user_id = %s
             """,
             (int(user_id),),
         ).fetchone()
@@ -539,7 +562,11 @@ def is_blocked(user_id: int) -> bool:
 def get_setting(name: str, default=None):
     with connect() as conn:
         row = conn.execute(
-            "SELECT value FROM settings WHERE key = ?",
+            """
+            SELECT value
+            FROM settings
+            WHERE key = %s
+            """,
             (name,),
         ).fetchone()
 
@@ -568,23 +595,32 @@ def set_setting(name: str, value) -> None:
         conn.execute(
             """
             INSERT INTO settings(key, value)
-            VALUES (?, ?)
+            VALUES (%s, %s)
             ON CONFLICT(key) DO UPDATE SET
-                value = excluded.value
+                value = EXCLUDED.value
             """,
-            (name, str(value)),
+            (
+                name,
+                str(value),
+            ),
         )
 
 
-def get_users() -> list[dict]:
+def get_users(limit: int | None = None) -> list[dict]:
+    query = """
+        SELECT *
+        FROM users
+        ORDER BY last_seen DESC
+    """
+
+    params = ()
+
+    if limit is not None:
+        query += " LIMIT %s"
+        params = (int(limit),)
+
     with connect() as conn:
-        rows = conn.execute(
-            """
-            SELECT *
-            FROM users
-            ORDER BY last_seen DESC
-            """
-        ).fetchall()
+        rows = conn.execute(query, params).fetchall()
 
     return [dict(row) for row in rows]
 
@@ -592,34 +628,50 @@ def get_users() -> list[dict]:
 def get_all_user_ids() -> list[int]:
     with connect() as conn:
         rows = conn.execute(
-            "SELECT user_id FROM users ORDER BY user_id"
+            """
+            SELECT user_id
+            FROM users
+            ORDER BY user_id
+            """
         ).fetchall()
 
     return [int(row["user_id"]) for row in rows]
 
 
-def get_posts() -> list[dict]:
+def get_posts(limit: int | None = None) -> list[dict]:
+    query = """
+        SELECT *
+        FROM posts
+        ORDER BY created_at DESC
+    """
+
+    params = ()
+
+    if limit is not None:
+        query += " LIMIT %s"
+        params = (int(limit),)
+
     with connect() as conn:
-        rows = conn.execute(
-            """
-            SELECT *
-            FROM posts
-            ORDER BY created_at DESC
-            """
-        ).fetchall()
+        rows = conn.execute(query, params).fetchall()
 
     return [_row_to_post(row) for row in rows]
 
 
-def get_chats() -> list[dict]:
+def get_chats(limit: int | None = None) -> list[dict]:
+    query = """
+        SELECT *
+        FROM chats
+        ORDER BY last_seen DESC
+    """
+
+    params = ()
+
+    if limit is not None:
+        query += " LIMIT %s"
+        params = (int(limit),)
+
     with connect() as conn:
-        rows = conn.execute(
-            """
-            SELECT *
-            FROM chats
-            ORDER BY last_seen DESC
-            """
-        ).fetchall()
+        rows = conn.execute(query, params).fetchall()
 
     return [dict(row) for row in rows]
 
@@ -631,7 +683,7 @@ def get_events(limit: int = 100) -> list[dict]:
             SELECT *
             FROM events
             ORDER BY id DESC
-            LIMIT ?
+            LIMIT %s
             """,
             (int(limit),),
         ).fetchall()
@@ -646,7 +698,7 @@ def get_errors(limit: int = 100) -> list[dict]:
             SELECT *
             FROM errors
             ORDER BY id DESC
-            LIMIT ?
+            LIMIT %s
             """,
             (int(limit),),
         ).fetchall()
@@ -700,7 +752,7 @@ def add_broadcast(
                 success,
                 failed
             )
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
             """,
             (
                 now_iso(),
@@ -719,7 +771,7 @@ def get_broadcasts(limit: int = 50) -> list[dict]:
             SELECT *
             FROM broadcasts
             ORDER BY id DESC
-            LIMIT ?
+            LIMIT %s
             """,
             (int(limit),),
         ).fetchall()
@@ -732,22 +784,22 @@ def get_counts() -> dict[str, int]:
         return {
             "users": conn.execute(
                 "SELECT COUNT(*) FROM users"
-            ).fetchone()[0],
+            ).fetchone()["count"],
             "posts": conn.execute(
                 "SELECT COUNT(*) FROM posts"
-            ).fetchone()[0],
+            ).fetchone()["count"],
             "chats": conn.execute(
                 "SELECT COUNT(*) FROM chats"
-            ).fetchone()[0],
+            ).fetchone()["count"],
             "events": conn.execute(
                 "SELECT COUNT(*) FROM events"
-            ).fetchone()[0],
+            ).fetchone()["count"],
             "errors": conn.execute(
                 "SELECT COUNT(*) FROM errors"
-            ).fetchone()[0],
+            ).fetchone()["count"],
             "blocked": conn.execute(
                 "SELECT COUNT(*) FROM blocked_users"
-            ).fetchone()[0],
+            ).fetchone()["count"],
         }
 
 
@@ -757,7 +809,7 @@ def get_user(user_id: int) -> dict | None:
             """
             SELECT *
             FROM users
-            WHERE user_id = ?
+            WHERE user_id = %s
             """,
             (int(user_id),),
         ).fetchone()
@@ -774,23 +826,28 @@ def search_users(query: str) -> list[dict]:
                 """
                 SELECT *
                 FROM users
-                WHERE user_id = ?
+                WHERE user_id = %s
                 """,
                 (int(query),),
             ).fetchall()
         else:
             pattern = f"%{query.lower()}%"
+
             rows = conn.execute(
                 """
                 SELECT *
                 FROM users
-                WHERE LOWER(COALESCE(username, '')) LIKE ?
-                   OR LOWER(COALESCE(first_name, '')) LIKE ?
-                   OR LOWER(COALESCE(last_name, '')) LIKE ?
+                WHERE LOWER(COALESCE(username, '')) LIKE %s
+                   OR LOWER(COALESCE(first_name, '')) LIKE %s
+                   OR LOWER(COALESCE(last_name, '')) LIKE %s
                 ORDER BY last_seen DESC
                 LIMIT 50
                 """,
-                (pattern, pattern, pattern),
+                (
+                    pattern,
+                    pattern,
+                    pattern,
+                ),
             ).fetchall()
 
     return [dict(row) for row in rows]
@@ -798,28 +855,14 @@ def search_users(query: str) -> list[dict]:
 
 def get_database_size() -> int:
     try:
-        return os.path.getsize(DB_PATH)
-    except OSError:
+        with connect() as conn:
+            row = conn.execute(
+                """
+                SELECT pg_database_size(current_database())
+                """
+            ).fetchone()
+
+        return int(row["pg_database_size"])
+
+    except Exception:
         return 0
-
-
-def backup_database(destination: Path) -> None:
-    destination.parent.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
-
-    source = connect()
-
-    try:
-        target = sqlite3.connect(destination)
-
-        try:
-            source.backup(target)
-        finally:
-            target.close()
-    finally:
-        source.close()
-
-
-init_db()

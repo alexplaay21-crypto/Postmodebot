@@ -2,7 +2,6 @@
 
 import asyncio
 import logging
-from contextlib import suppress
 
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
@@ -11,7 +10,6 @@ from aiogram.enums import ParseMode
 from config import BOT_TOKEN
 from bot import monitoring
 from bot.database import init_db
-from bot.export import weekly_export_loop
 from bot.handlers import (
     admin,
     donate,
@@ -33,7 +31,7 @@ async def main() -> None:
             "Set BOT_TOKEN in config.py or environment."
         )
 
-    # SQLite
+    # Initialize PostgreSQL database.
     init_db()
 
     bot = Bot(
@@ -59,24 +57,12 @@ async def main() -> None:
 
     monitoring.set_started()
 
-    # Автоматический экспорт SQLite раз в 7 дней.
-    export_task = asyncio.create_task(
-        weekly_export_loop(bot)
-    )
-
     try:
         await bot.delete_webhook(
             drop_pending_updates=True
         )
-
         await dp.start_polling(bot)
-
     finally:
-        export_task.cancel()
-
-        with suppress(asyncio.CancelledError):
-            await export_task
-
         await bot.session.close()
 
 

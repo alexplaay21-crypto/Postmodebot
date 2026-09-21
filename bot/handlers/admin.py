@@ -37,7 +37,6 @@ from bot.database import (
     is_blocked,
     set_blocked,
     add_broadcast,
-    backup_database,
     get_database_size,
 )
 from bot.monitoring import uptime_text
@@ -574,100 +573,11 @@ async def admin_backup(call: CallbackQuery):
     if not _callback_admin(call):
         return
 
-    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-
-    db_copy = EXPORTS_DIR / f"bot_{stamp}.db"
-    archive = EXPORTS_DIR / f"postmodebot_export_{stamp}.zip"
-
-    try:
-        backup_database(db_copy)
-
-        with zipfile.ZipFile(
-            archive,
-            "w",
-            compression=zipfile.ZIP_DEFLATED,
-        ) as z:
-            z.write(db_copy, arcname="bot.db")
-
-            info = (
-                "Postmodebot SQLite export\n"
-                f"Created: {datetime.now(timezone.utc).isoformat()}\n"
-                f"Database: bot.db\n"
-            )
-
-            z.writestr("export_info.txt", info)
-
-        await call.message.answer_document(
-            FSInputFile(archive),
-            caption=(
-                "💾 <b>Экспорт базы данных</b>\n\n"
-                f"Размер: {archive.stat().st_size / 1024:.1f} KB"
-            ),
-        )
-
-    except Exception as e:
-        await call.message.answer(
-            f"❌ Ошибка экспорта:\n<code>{str(e)[:1000]}</code>"
-        )
-
-    finally:
-        try:
-            db_copy.unlink(missing_ok=True)
-            archive.unlink(missing_ok=True)
-        except Exception:
-            pass
-
+    await call.message.answer(
+        "ℹ️ Экспорт SQLite отключён.\n\n"
+        "Бот использует PostgreSQL через Railway."
+    )
     await call.answer()
-
-
-@router.message(Command("export"))
-async def export_command(message: Message):
-    if not _admin(message):
-        return
-
-    EXPORTS_DIR.mkdir(parents=True, exist_ok=True)
-
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-
-    db_copy = EXPORTS_DIR / f"bot_{stamp}.db"
-    archive = EXPORTS_DIR / f"postmodebot_export_{stamp}.zip"
-
-    try:
-        backup_database(db_copy)
-
-        with zipfile.ZipFile(
-            archive,
-            "w",
-            compression=zipfile.ZIP_DEFLATED,
-        ) as z:
-            z.write(db_copy, arcname="bot.db")
-
-            z.writestr(
-                "export_info.txt",
-                (
-                    "Postmodebot SQLite export\n"
-                    f"Created: {datetime.now(timezone.utc).isoformat()}\n"
-                ),
-            )
-
-        await message.answer_document(
-            FSInputFile(archive),
-            caption="💾 Экспорт базы данных готов.",
-        )
-
-    except Exception as e:
-        await message.answer(
-            f"❌ Ошибка экспорта:\n<code>{str(e)[:1000]}</code>"
-        )
-
-    finally:
-        try:
-            db_copy.unlink(missing_ok=True)
-            archive.unlink(missing_ok=True)
-        except Exception:
-            pass
 
 
 @router.message(Command("find"))
