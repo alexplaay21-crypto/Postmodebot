@@ -335,7 +335,7 @@ async def admin_monitor(call: CallbackQuery):
     await call.message.edit_text(
         "🖥 <b>Мониторинг</b>\n\n"
         f"⏱ Аптайм: {uptime_text()}\n"
-        f"💾 SQLite: {get_database_size() / 1024:.1f} KB",
+        f"💾 PostgreSQL: {get_database_size() / 1024:.1f} KB",
         reply_markup=_back_kb(),
     )
     await call.answer()
@@ -574,7 +574,7 @@ async def admin_backup(call: CallbackQuery):
         return
 
     await call.message.answer(
-        "ℹ️ Экспорт SQLite отключён.\n\n"
+        "ℹ️ Экспорт базы данных отключён.\n\n"
         "Бот использует PostgreSQL через Railway."
     )
     await call.answer()
