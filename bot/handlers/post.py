@@ -174,14 +174,30 @@ def _explain_error(lang: str, exc: Exception) -> str:
     return t(lang, "error_generic", description=str(exc))
 
 
-async def _send_by_media(senders, media, caption, markup):
-    """Dispatches to the right Bot API method based on stored media type."""
+async def _send_by_media(senders, media, caption, markup, entities=None):
+    """Dispatches to the right Bot API method, preserving Telegram entities."""
     kind = media.get("type") if media else None
+
+    kwargs = {
+        "reply_markup": markup,
+    }
+
+    if entities:
+        kwargs["caption_entities" if kind in ("photo", "video", "animation", "document") else "entities"] = entities
+    else:
+        kwargs["parse_mode"] = "HTML"
+
     if kind in ("photo", "video", "animation", "document"):
         return await senders[kind](
-            media["file_id"], caption=caption or None, parse_mode="HTML", reply_markup=markup,
+            media["file_id"],
+            caption=caption or None,
+            **kwargs,
         )
-    return await senders["text"](caption or "-", parse_mode="HTML", reply_markup=markup)
+
+    return await senders["text"](
+        caption or "-",
+        **kwargs,
+    )
 
 
 async def _show_preview(message: Message, state: FSMContext):
@@ -203,7 +219,10 @@ async def _show_preview(message: Message, state: FSMContext):
                 "document": message.answer_document,
                 "text": message.answer,
             },
-            data.get("media"), data.get("caption", ""), buttons_markup(data.get("buttons")),
+            data.get("media"),
+            data.get("caption", ""),
+            buttons_markup(data.get("buttons")),
+            data.get("entities"),
         )
     except TelegramBadRequest as e:
         # Bad HTML in the text, bad button, etc. - tell the user instead of hiding it.
@@ -232,7 +251,11 @@ async def receive_text(message: Message, state: FSMContext):
         await message.answer(t(lang, "post_ask_text"), reply_markup=cancel_kb(lang))
         return
 
-    await state.update_data(caption=_preserve_custom_emoji(message))
+    entities = message.entities or message.caption_entities
+    await state.update_data(
+        caption=(message.text or message.caption or "") if entities else _preserve_custom_emoji(message),
+        entities=entities,
+    )
 
     if data.get("editing"):
         await _show_preview(message, state)
@@ -469,7 +492,10 @@ async def send_post(call: CallbackQuery, state: FSMContext, bot: Bot):
                 "document": partial(bot.send_document, target),
                 "text": partial(bot.send_message, target),
             },
-            media, caption, markup,
+            media,
+            caption,
+            markup,
+            data.get("entities"),
         )
         record_post_sent(
             call.from_user.id,
